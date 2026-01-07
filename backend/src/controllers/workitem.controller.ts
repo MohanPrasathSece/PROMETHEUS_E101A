@@ -133,4 +133,12 @@ export class WorkItemController {
             res.status(500).json({ success: false, error: error.message });
         }
     }
+    static async getTeamItems(req: Request, res: Response) {
+        try {
+            const items = await WorkItemService.getTeamItems(req.params.teamId);
+            res.json({ success: true, data: items });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
 }

@@ -134,4 +134,12 @@ export class ThreadController {
             res.status(500).json({ success: false, error: error.message });
         }
     }
+    static async getTeamThreads(req: Request, res: Response) {
+        try {
+            const threads = await WorkThreadService.getTeamThreads(req.params.teamId);
+            res.json({ success: true, data: threads });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
 }

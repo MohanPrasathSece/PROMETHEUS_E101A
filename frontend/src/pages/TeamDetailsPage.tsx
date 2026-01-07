@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Header } from '@/components/Header';
-import { TeamService } from '@/services/api';
-import { Team } from '@/lib/types';
+import { WorkThreadCard } from '@/components/WorkThreadCard';
+import { TeamService, ThreadService, WorkItemService } from '@/services/api';
+import { Team, WorkThread, WorkItem } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,10 +24,45 @@ export default function TeamDetailsPage() {
     const [inviteEmail, setInviteEmail] = useState('');
     const [isInviteOpen, setIsInviteOpen] = useState(false);
     const [inviteLink, setInviteLink] = useState('');
+    const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
+    const [newTaskTitle, setNewTaskTitle] = useState('');
 
     const { data: team, isLoading } = useQuery({
         queryKey: ['team', teamId],
         queryFn: () => teamId ? TeamService.get(teamId) : Promise.reject('No ID'),
+        enabled: !!teamId
+    });
+
+    // ... (keep queries)
+
+    const createTaskMutation = useMutation({
+        mutationFn: (title: string) => {
+            if (!teamId) throw new Error('No ID');
+            return WorkItemService.createItem({
+                title,
+                type: 'task',
+                source: 'Manual',
+                teamId,
+                isRead: false
+            });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['teamItems', teamId] });
+            setIsTaskDialogOpen(false);
+            setNewTaskTitle('');
+            toast.success('Task created');
+        }
+    });
+
+    const { data: teamThreads = [], isLoading: threadsLoading } = useQuery({
+        queryKey: ['teamThreads', teamId],
+        queryFn: () => teamId ? ThreadService.getTeamThreads(teamId) : Promise.resolve([]),
+        enabled: !!teamId
+    });
+
+    const { data: teamItems = [], isLoading: itemsLoading } = useQuery({
+        queryKey: ['teamItems', teamId],
+        queryFn: () => teamId ? WorkItemService.getTeamItems(teamId) : Promise.resolve([]),
         enabled: !!teamId
     });
 
@@ -195,10 +231,82 @@ export default function TeamDetailsPage() {
                             </Card>
                         </TabsContent>
 
-                        <TabsContent value="work">
-                            <div className="text-center py-12 text-muted-foreground">
-                                <p>Team work threads and tasks will appear here.</p>
-                                <p className="text-sm">(Coming soon)</p>
+                        <TabsContent value="work" className="mt-6 space-y-8">
+                            <div>
+                                <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                                    Active Work Threads
+                                    <Badge variant="outline">{teamThreads.length}</Badge>
+                                </h3>
+                                {threadsLoading ? <div className="flex justify-center"><Loader2 className="animate-spin" /></div> :
+                                    teamThreads.length > 0 ? (
+                                        <div className="grid gap-4 md:grid-cols-2">
+                                            {teamThreads.map((t: WorkThread) => <WorkThreadCard key={t.id} thread={t} />)}
+                                        </div>
+                                    ) : <div className="text-center py-8 text-muted-foreground bg-muted/30 rounded-lg">No active threads assigned to this team.</div>}
+                            </div>
+
+                            <div>
+                                <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                                    Team Tasks & Items
+                                    <Badge variant="outline">{teamItems.length}</Badge>
+                                    <div className="ml-auto">
+                                        <Dialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen}>
+                                            <DialogTrigger asChild>
+                                                <Button size="sm" variant="outline">
+                                                    <Plus className="w-3 h-3 mr-2" /> Add Task
+                                                </Button>
+                                            </DialogTrigger>
+                                            <DialogContent>
+                                                <DialogHeader>
+                                                    <DialogTitle>Add Team Task</DialogTitle>
+                                                </DialogHeader>
+                                                <div className="py-4">
+                                                    <Label>Task Title</Label>
+                                                    <Input
+                                                        placeholder="e.g. Prepare Quarter Report"
+                                                        value={newTaskTitle}
+                                                        onChange={e => setNewTaskTitle(e.target.value)}
+                                                    />
+                                                </div>
+                                                <DialogFooter>
+                                                    <Button onClick={() => createTaskMutation.mutate(newTaskTitle)} disabled={!newTaskTitle || createTaskMutation.isPending}>
+                                                        Create
+                                                    </Button>
+                                                </DialogFooter>
+                                            </DialogContent>
+                                        </Dialog>
+                                    </div>
+                                </h3>
+                                {itemsLoading ? <div className="flex justify-center"><Loader2 className="animate-spin" /></div> :
+                                    teamItems.length > 0 ? (
+                                        <Card>
+                                            <CardContent className="p-0">
+                                                {teamItems.map((item: WorkItem) => (
+                                                    <div key={item.id} className="p-4 border-b last:border-0 flex justify-between items-center hover:bg-muted/30 transition-colors">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-2 h-2 rounded-full bg-primary" />
+                                                            <div>
+                                                                <p className="font-medium">{item.title}</p>
+                                                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                                    <span>{item.source}</span>
+                                                                    <span>•</span>
+                                                                    <span>{format(new Date(item.timestamp), 'MMM d, h:mm a')}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            {item.assigneeId && (
+                                                                <Badge variant="secondary" className="text-xs">
+                                                                    Assigned
+                                                                </Badge>
+                                                            )}
+                                                            <Badge variant={item.isRead ? "outline" : "default"}>{item.type}</Badge>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </CardContent>
+                                        </Card>
+                                    ) : <div className="text-center py-8 text-muted-foreground bg-muted/30 rounded-lg">No items assigned to this team.</div>}
                             </div>
                         </TabsContent>
                     </Tabs>

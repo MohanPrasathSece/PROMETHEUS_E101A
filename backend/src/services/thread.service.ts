@@ -136,4 +136,13 @@ export class WorkThreadService {
 
         return threads.map(t => t.toJSON() as unknown as WorkThread);
     }
+    static async getTeamThreads(teamId: string): Promise<WorkThread[]> {
+        try {
+            const threads = await WorkThreadModel.find({ teamId }).sort({ lastActivity: -1 });
+            return threads.map(t => t.toJSON() as unknown as WorkThread);
+        } catch (error: any) {
+            console.error('Error getting team threads:', error);
+            throw error;
+        }
+    }
 }

@@ -58,6 +58,10 @@ export const ThreadService = {
     get: async (id: string) => {
         const response = await api.get(`/threads/${id}`);
         return response.data.data;
+    },
+    getTeamThreads: async (teamId: string) => {
+        const response = await api.get(`/threads/team/${teamId}`);
+        return response.data.data;
     }
 };
 
@@ -76,6 +80,10 @@ export const WorkItemService = {
     },
     getThreadItems: async (threadId: string) => {
         const response = await api.get(`/items/thread/${threadId}`);
+        return response.data.data;
+    },
+    getTeamItems: async (teamId: string) => {
+        const response = await api.get(`/items/team/${teamId}`);
         return response.data.data;
     },
     markAsRead: async (id: string) => {

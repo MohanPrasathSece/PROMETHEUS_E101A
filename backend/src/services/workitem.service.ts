@@ -137,4 +137,13 @@ export class WorkItemService {
             throw error;
         }
     }
+    static async getTeamItems(teamId: string): Promise<WorkItem[]> {
+        try {
+            const items = await WorkItemModel.find({ teamId }).sort({ timestamp: -1 });
+            return items.map(i => i.toJSON() as unknown as WorkItem);
+        } catch (error: any) {
+            console.error('Error getting team items:', error);
+            throw error;
+        }
+    }
 }

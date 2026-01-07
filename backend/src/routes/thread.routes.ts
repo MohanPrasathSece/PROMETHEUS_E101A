@@ -13,6 +13,7 @@ router.get('/user/:userId/upcoming-deadlines', ThreadController.getUpcomingDeadl
 router.put('/:id', ThreadController.updateThread);
 router.put('/:id/progress', ThreadController.updateProgress);
 router.put('/:id/ignore', ThreadController.toggleIgnore);
+router.get('/team/:teamId', ThreadController.getTeamThreads);
 router.delete('/:id', ThreadController.deleteThread);
 
 export default router;

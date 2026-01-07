@@ -158,6 +158,33 @@ export class AnalyticsService {
     }
 
     /**
+     * Add a focus session records
+     */
+    static async addFocusSession(userId: string, durationMinutes: number, tasksCompleted: number = 0): Promise<void> {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        await DailyStatsModel.findOneAndUpdate(
+            { userId, date: today },
+            {
+                $inc: {
+                    focusTime: durationMinutes,
+                    completedTasks: tasksCompleted
+                }
+            },
+            { upsert: true }
+        );
+
+        // Record activity
+        await this.recordActivity({
+            userId,
+            type: 'focus-session',
+            timestamp: new Date(),
+            metadata: { durationMinutes, tasksCompleted },
+        });
+    }
+
+    /**
      * Get today's stats
      */
     private static async getTodayStats(userId: string): Promise<DailyStats | null> {

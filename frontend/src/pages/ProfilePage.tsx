@@ -23,11 +23,17 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 export default function ProfilePage() {
-  const { currentUser } = useAuth();
+  const { currentUser, signOut } = useAuth();
+  const navigate = useNavigate();
   const userData = currentUser || mockUser;
+
+  const handleSignOut = () => {
+    signOut();
+    navigate('/');
+  };
 
   const totalFocusTime = Math.round(
     mockDailyStats.reduce((acc, s) => acc + s.focusTime, 0) / 60
@@ -233,11 +239,13 @@ export default function ProfilePage() {
             transition={{ delay: 0.4 }}
             className="mt-6"
           >
-            <Button variant="outline" className="text-destructive hover:text-destructive" asChild>
-              <Link to="/">
-                <LogOut className="w-4 h-4 mr-2" />
-                Sign out
-              </Link>
+            <Button
+              variant="outline"
+              className="text-destructive hover:text-destructive"
+              onClick={handleSignOut}
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign out
             </Button>
           </motion.div>
         </div>

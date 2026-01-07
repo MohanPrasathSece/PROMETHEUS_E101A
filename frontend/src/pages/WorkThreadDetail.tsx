@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { WorkItemRow } from '@/components/WorkItemRow';
@@ -5,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft,
   Clock,
@@ -14,12 +15,16 @@ import {
   CheckCircle2,
   Circle,
   MoreHorizontal,
-  Loader2
+  Loader2,
+  Sparkles,
+  ArrowRight
 } from 'lucide-react';
+import { AddWorkItemDialog } from '@/components/AddWorkItemDialog';
 import { formatDistanceToNow, format } from 'date-fns';
-import { useQuery } from '@tanstack/react-query';
-import { ThreadService, WorkItemService } from '@/services/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { ThreadService, WorkItemService, IntelligenceService } from '@/services/api';
 import { WorkThread, WorkItem } from '@/lib/types';
+import { toast } from 'sonner';
 
 export default function WorkThreadDetail() {
   const { threadId } = useParams<{ threadId: string }>();
@@ -36,6 +41,40 @@ export default function WorkThreadDetail() {
     queryFn: () => threadId ? WorkItemService.getThreadItems(threadId) : Promise.resolve([]),
     enabled: !!threadId
   });
+
+  const queryClient = useQueryClient();
+
+  const updateThreadMutation = useMutation({
+    mutationFn: (updates: Partial<WorkThread>) => {
+      if (!threadId) throw new Error('No thread ID');
+      return ThreadService.update(threadId, updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['thread', threadId] });
+      queryClient.invalidateQueries({ queryKey: ['threads'] });
+      toast.success('Thread updated');
+    },
+    onError: () => {
+      toast.error('Failed to update thread');
+    }
+  });
+
+  const markComplete = () => {
+    updateThreadMutation.mutate({ progress: 100 });
+  };
+
+  const { data: aiSummary, isLoading: summaryLoading, refetch: refetchSummary } = useQuery({
+    queryKey: ['threadSummary', threadId],
+    queryFn: () => threadId ? IntelligenceService.getThreadSummary(threadId) : Promise.reject('No ID'),
+    enabled: false, // Only fetch on button click
+  });
+
+  const [showSummary, setShowSummary] = useState(false);
+
+  const handleAiCopilot = () => {
+    setShowSummary(true);
+    refetchSummary();
+  };
 
   if (threadLoading) {
     return (
@@ -120,7 +159,7 @@ export default function WorkThreadDetail() {
               {thread.deadline && (
                 <div className="flex items-center gap-1.5">
                   <Clock className="w-4 h-4" />
-                  <span>Due {formatDistanceToNow(new Date(thread.deadline), { addSuffix: true })}</span>
+                  <span>Due {format(new Date(thread.deadline), "PPP 'at' p")}</span>
                 </div>
               )}
               {thread.relatedPeople && thread.relatedPeople.length > 0 && (
@@ -152,6 +191,60 @@ export default function WorkThreadDetail() {
               </CardContent>
             </Card>
           </motion.div>
+
+          {/* AI Copilot Section - Winning Feature */}
+          <AnimatePresence>
+            {showSummary && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+                className="mb-8"
+              >
+                <Card className="border-primary/20 bg-primary/5">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-headline flex items-center gap-2">
+                        <Sparkles className="w-5 h-5 text-primary" />
+                        AI Copilot Analysis
+                      </CardTitle>
+                      <Button variant="ghost" size="sm" onClick={() => setShowSummary(false)}>Close</Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {summaryLoading ? (
+                      <div className="flex flex-col items-center justify-center py-8">
+                        <Loader2 className="w-8 h-8 animate-spin text-primary mb-2" />
+                        <p className="text-sm text-muted-foreground italic">Analyzing thread activity and items...</p>
+                      </div>
+                    ) : aiSummary ? (
+                      <>
+                        <div className="space-y-2">
+                          <p className="text-sm leading-relaxed text-foreground/90 font-medium">
+                            {aiSummary.summary}
+                          </p>
+                        </div>
+                        <div className="space-y-3">
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Recommended Next Steps</h4>
+                          <div className="grid gap-2">
+                            {aiSummary.nextSteps.map((step: string, i: number) => (
+                              <div key={i} className="flex items-start gap-3 p-3 bg-card rounded-lg border shadow-sm">
+                                <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary flex-shrink-0">
+                                  {i + 1}
+                                </div>
+                                <span className="text-sm">{step}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    ) : null}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Related items */}
           <motion.div
@@ -192,13 +285,23 @@ export default function WorkThreadDetail() {
             transition={{ delay: 0.3 }}
             className="mt-6 flex items-center gap-3"
           >
-            <Button variant="default">
+            <Button
+              variant="default"
+              onClick={markComplete}
+              disabled={updateThreadMutation.isPending || thread.progress === 100}
+            >
               <CheckCircle2 className="w-4 h-4 mr-2" />
-              Mark as complete
+              {thread.progress === 100 ? 'Completed' : 'Mark as complete'}
             </Button>
-            <Button variant="outline">
-              Add related item
+            <Button
+              variant="accent"
+              onClick={handleAiCopilot}
+              disabled={summaryLoading}
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              AI Copilot
             </Button>
+            <AddWorkItemDialog threadId={threadId} />
           </motion.div>
         </div>
       </main>

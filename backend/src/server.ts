@@ -59,7 +59,7 @@ app.get('/health', (req: Request, res: Response) => {
 });
 
 // API Routes
-app.use('/api/users', authMiddleware, userRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/threads', authMiddleware, threadRoutes);
 app.use('/api/items', authMiddleware, workitemRoutes);
 app.use('/api/intelligence', authMiddleware, intelligenceRoutes);

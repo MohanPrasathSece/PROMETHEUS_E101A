@@ -7,7 +7,12 @@ export class ThreadController {
      */
     static async createThread(req: Request, res: Response) {
         try {
-            const thread = await WorkThreadService.createThread(req.body);
+            const userId = (req as any).user?.id || req.body.userId;
+            if (!userId) {
+                return res.status(400).json({ success: false, error: 'User ID is required' });
+            }
+            const threadData = { ...req.body, userId };
+            const thread = await WorkThreadService.createThread(threadData);
             res.status(201).json({ success: true, data: thread });
         } catch (error: any) {
             res.status(500).json({ success: false, error: error.message });
@@ -34,7 +39,11 @@ export class ThreadController {
      */
     static async getUserThreads(req: Request, res: Response) {
         try {
-            const threads = await WorkThreadService.getUserThreads(req.params.userId);
+            const userId = req.params.userId || (req as any).user?.id;
+            if (!userId) {
+                return res.status(400).json({ success: false, error: 'User ID is required' });
+            }
+            const threads = await WorkThreadService.getUserThreads(userId);
             res.json({ success: true, data: threads });
         } catch (error: any) {
             res.status(500).json({ success: false, error: error.message });

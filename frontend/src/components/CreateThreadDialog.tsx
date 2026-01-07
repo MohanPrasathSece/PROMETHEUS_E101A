@@ -63,16 +63,27 @@ export function CreateThreadDialog() {
             title: '',
             description: '',
             priority: 'medium',
+            deadline: undefined,
         },
     });
+
+    const [selectedTime, setSelectedTime] = useState('12:00');
 
     const { mutate, isPending } = useMutation({
         mutationFn: (values: z.infer<typeof formSchema>) => {
             if (!currentUser) throw new Error('Not authenticated');
 
+            let deadline = values.deadline;
+            if (deadline && selectedTime) {
+                const [hours, minutes] = selectedTime.split(':').map(Number);
+                deadline = new Date(deadline);
+                deadline.setHours(hours, minutes, 0, 0);
+            }
+
             return ThreadService.create({
                 ...values,
-                userId: currentUser.uid,
+                deadline,
+                userId: currentUser.id,
                 progress: 0,
                 isIgnored: false,
                 itemIds: [],
@@ -202,10 +213,21 @@ export function CreateThreadDialog() {
                                                     selected={field.value}
                                                     onSelect={field.onChange}
                                                     disabled={(date) =>
-                                                        date < new Date()
+                                                        date < new Date(new Date().setHours(0, 0, 0, 0))
                                                     }
                                                     initialFocus
                                                 />
+                                                {field.value && (
+                                                    <div className="p-3 border-t">
+                                                        <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground mb-2 block">Set Time</FormLabel>
+                                                        <Input
+                                                            type="time"
+                                                            value={selectedTime}
+                                                            onChange={(e) => setSelectedTime(e.target.value)}
+                                                            className="h-8 text-sm"
+                                                        />
+                                                    </div>
+                                                )}
                                             </PopoverContent>
                                         </Popover>
                                         <FormMessage />

@@ -3,6 +3,43 @@ import { UserService } from '../services/user.service';
 
 export class UserController {
     /**
+     * Register a new user
+     */
+    static async register(req: Request, res: Response) {
+        try {
+            const { user, token } = await UserService.register(req.body);
+            res.status(201).json({ success: true, data: { user, token } });
+        } catch (error: any) {
+            res.status(400).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * Login user
+     */
+    static async login(req: Request, res: Response) {
+        try {
+            const { user, token } = await UserService.login(req.body);
+            res.json({ success: true, data: { user, token } });
+        } catch (error: any) {
+            res.status(401).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * Google Login
+     */
+    static async googleLogin(req: Request, res: Response) {
+        try {
+            const { idToken } = req.body;
+            const { user, token } = await UserService.googleLogin(idToken);
+            res.json({ success: true, data: { user, token } });
+        } catch (error: any) {
+            res.status(401).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
      * Create a new user
      */
     static async createUser(req: Request, res: Response) {

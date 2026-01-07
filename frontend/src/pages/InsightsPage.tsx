@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Lightbulb,
   TrendingUp,
@@ -27,13 +27,25 @@ import {
 } from 'recharts';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { IntelligenceService } from '@/services/api';
 import { WorkInsight, DailyStats } from '@/lib/types';
+import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 export default function InsightsPage() {
   const { currentUser } = useAuth();
-  const userId = currentUser?.uid;
+  const userId = currentUser?.id;
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const dismissInsightMutation = useMutation({
+    mutationFn: (id: string) => IntelligenceService.dismissInsight(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['insights', userId] });
+      toast.success('Insight dismissed');
+    }
+  });
 
   const { data: stats = [], isLoading: statsLoading } = useQuery({
     queryKey: ['dailyStats', userId],
@@ -291,20 +303,44 @@ export default function InsightsPage() {
                     {insightsLoading ? (
                       <div className="flex justify-center p-4"><Loader2 className="animate-spin text-muted-foreground" /></div>
                     ) : insights.length > 0 ? (
-                      insights.map((insight: WorkInsight) => (
-                        <InsightCard key={insight.id} insight={insight} />
-                      ))
+                      <AnimatePresence>
+                        {insights.map((insight: WorkInsight) => (
+                          <InsightCard
+                            key={insight.id}
+                            insight={insight}
+                            onDismiss={() => dismissInsightMutation.mutate(insight.id)}
+                            onAction={() => {
+                              if (insight.relatedThreadIds?.[0]) {
+                                navigate(`/thread/${insight.relatedThreadIds[0]}`);
+                              }
+                            }}
+                          />
+                        ))}
+                      </AnimatePresence>
                     ) : (
                       <p className="text-center text-sm text-muted-foreground">No active insights</p>
                     )}
                   </TabsContent>
 
                   <TabsContent value="critical" className="space-y-3">
-                    {insightsLoading ? null : insights
-                      .filter((i: WorkInsight) => i.severity === 'critical')
-                      .map((insight: WorkInsight) => (
-                        <InsightCard key={insight.id} insight={insight} />
-                      ))}
+                    {insightsLoading ? null : (
+                      <AnimatePresence>
+                        {insights
+                          .filter((i: WorkInsight) => i.severity === 'critical')
+                          .map((insight: WorkInsight) => (
+                            <InsightCard
+                              key={insight.id}
+                              insight={insight}
+                              onDismiss={() => dismissInsightMutation.mutate(insight.id)}
+                              onAction={() => {
+                                if (insight.relatedThreadIds?.[0]) {
+                                  navigate(`/thread/${insight.relatedThreadIds[0]}`);
+                                }
+                              }}
+                            />
+                          ))}
+                      </AnimatePresence>
+                    )}
                   </TabsContent>
                 </Tabs>
               </motion.div>

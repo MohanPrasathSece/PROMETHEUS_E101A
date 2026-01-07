@@ -1,4 +1,5 @@
 import { Toaster } from "@/components/ui/toaster";
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -12,18 +13,18 @@ import WorkThreadDetail from "./pages/WorkThreadDetail";
 import InsightsPage from "./pages/InsightsPage";
 import ProfilePage from "./pages/ProfilePage";
 import NotFound from "./pages/NotFound";
-
-import { GoogleOAuthProvider } from '@react-oauth/google';
+import { AIChatBot } from "./components/AIChatBot";
 
 const queryClient = new QueryClient();
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || 'your-client-id';
+
+const GOOGLE_CLIENT_ID = '636666241864-fronahev0ijj9vr0a0lue6lhuunqnp87.apps.googleusercontent.com';
 
 const App = () => (
-  <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
         <AuthProvider>
           <BrowserRouter>
             <Routes>
@@ -63,11 +64,16 @@ const App = () => (
               />
               <Route path="*" element={<NotFound />} />
             </Routes>
+            <AIChatBotWrapper />
           </BrowserRouter>
         </AuthProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
-  </GoogleOAuthProvider>
+      </GoogleOAuthProvider>
+    </TooltipProvider>
+  </QueryClientProvider>
 );
+
+const AIChatBotWrapper = () => {
+  return <AIChatBot />;
+};
 
 export default App;

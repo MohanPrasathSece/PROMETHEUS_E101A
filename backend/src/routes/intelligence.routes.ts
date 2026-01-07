@@ -20,5 +20,8 @@ router.get('/cognitive-load/:userId', IntelligenceController.getLatestCognitiveL
 router.get('/stats/:userId', IntelligenceController.getDailyStats);
 router.put('/stats/:userId', IntelligenceController.updateDailyStats);
 router.post('/context-switch/:userId', IntelligenceController.recordContextSwitch);
+router.post('/focus-session/:userId', IntelligenceController.recordFocusSession);
+router.get('/thread-summary/:id', IntelligenceController.getThreadSummary);
+router.post('/chat/:userId', IntelligenceController.chat);
 
 export default router;

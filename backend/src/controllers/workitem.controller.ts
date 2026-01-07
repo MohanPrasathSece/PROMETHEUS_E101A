@@ -7,7 +7,12 @@ export class WorkItemController {
      */
     static async createItem(req: Request, res: Response) {
         try {
-            const item = await WorkItemService.createItem(req.body);
+            const userId = (req as any).user?.id || req.body.userId;
+            if (!userId) {
+                return res.status(400).json({ success: false, error: 'User ID is required' });
+            }
+            const itemData = { ...req.body, userId };
+            const item = await WorkItemService.createItem(itemData);
             res.status(201).json({ success: true, data: item });
         } catch (error: any) {
             res.status(500).json({ success: false, error: error.message });
@@ -34,7 +39,11 @@ export class WorkItemController {
      */
     static async getUserItems(req: Request, res: Response) {
         try {
-            const items = await WorkItemService.getUserItems(req.params.userId);
+            const userId = req.params.userId || (req as any).user?.id;
+            if (!userId) {
+                return res.status(400).json({ success: false, error: 'User ID is required' });
+            }
+            const items = await WorkItemService.getUserItems(userId);
             res.json({ success: true, data: items });
         } catch (error: any) {
             res.status(500).json({ success: false, error: error.message });

@@ -1,7 +1,9 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { User as UserType, UserPreferences } from '../types';
 
-export interface IUser extends Document, Omit<UserType, 'id'> { }
+export interface IUser extends Document, Omit<UserType, 'id'> {
+    password?: string;
+}
 
 const UserPreferencesSchema = new Schema<UserPreferences>({
     workHoursStart: { type: Number, default: 9 },
@@ -14,6 +16,7 @@ const UserPreferencesSchema = new Schema<UserPreferences>({
 const UserSchema: Schema = new Schema({
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
+    password: { type: String },
     avatar: { type: String },
     createdAt: { type: Date, default: Date.now },
     lastLogin: { type: Date, default: Date.now },

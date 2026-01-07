@@ -1,9 +1,16 @@
 import { Router } from 'express';
 import { UserController } from '../controllers/user.controller';
+import { authMiddleware } from '../middleware/auth.middleware';
 
 const router = Router();
 
-// User routes
+// Public routes
+router.post('/register', UserController.register);
+router.post('/login', UserController.login);
+router.post('/google-login', UserController.googleLogin);
+
+// Protected routes
+router.use(authMiddleware as any);
 router.post('/', UserController.createUser);
 router.get('/:id', UserController.getUser);
 router.get('/email/search', UserController.getUserByEmail);

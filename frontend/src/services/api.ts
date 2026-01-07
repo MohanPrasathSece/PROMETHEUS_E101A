@@ -12,7 +12,7 @@ const api = axios.create({
 
 // Add auth token to requests
 api.interceptors.request.use(async (config) => {
-    const token = localStorage.getItem('google_token');
+    const token = localStorage.getItem('auth_token');
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
     }
@@ -66,6 +66,10 @@ export const WorkItemService = {
         const response = await api.get(`/items/user/${userId}`);
         return response.data.data;
     },
+    createItem: async (item: Partial<WorkItem>) => {
+        const response = await api.post('/items', item);
+        return response.data.data;
+    },
     getUnreadItems: async (userId: string) => {
         const response = await api.get(`/items/user/${userId}/unread`);
         return response.data.data;
@@ -99,6 +103,22 @@ export const IntelligenceService = {
     },
     getDailyStats: async (userId: string) => {
         const response = await api.get(`/intelligence/stats/${userId}`);
+        return response.data.data;
+    },
+    dismissInsight: async (id: string) => {
+        const response = await api.put(`/intelligence/insights/${id}/dismiss`);
+        return response.data;
+    },
+    recordFocusSession: async (userId: string, durationMinutes: number, tasksCompleted: number) => {
+        const response = await api.post(`/intelligence/focus-session/${userId}`, { durationMinutes, tasksCompleted });
+        return response.data;
+    },
+    getThreadSummary: async (threadId: string) => {
+        const response = await api.get(`/intelligence/thread-summary/${threadId}`);
+        return response.data.data;
+    },
+    chat: async (userId: string, message: string, history: any[]) => {
+        const response = await api.post(`/intelligence/chat/${userId}`, { message, history });
         return response.data.data;
     }
 };

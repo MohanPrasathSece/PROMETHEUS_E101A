@@ -1,11 +1,147 @@
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { OAuth2Client } from 'google-auth-library';
 import { User, UserPreferences } from '../types';
 import { UserModel } from '../models/User';
 import { WorkThreadModel } from '../models/WorkThread';
 import { WorkItemModel } from '../models/WorkItem';
 
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || '636666241864-fronahev0ijj9vr0a0lue6lhuunqnp87.apps.googleusercontent.com');
+
 export class UserService {
     /**
-     * Create a new user
+     * Register a new user
+     */
+    static async register(userData: any): Promise<{ user: User, token: string }> {
+        try {
+            const { name, email, password } = userData;
+
+            const existingUser = await UserModel.findOne({ email });
+            if (existingUser) {
+                throw new Error('User already exists');
+            }
+
+            const salt = await bcrypt.genSalt(10);
+            const hashedPassword = await bcrypt.hash(password, salt);
+
+            const newUser = new UserModel({
+                name,
+                email,
+                password: hashedPassword,
+                createdAt: new Date(),
+                lastLogin: new Date(),
+                preferences: {
+                    theme: 'auto',
+                    notificationsEnabled: true,
+                    workHoursStart: 9,
+                    workHoursEnd: 17,
+                    focusTimeGoal: 120
+                },
+            });
+
+            await newUser.save();
+            await this.seedInitialData(newUser.id);
+
+            const userJson = newUser.toJSON() as unknown as User;
+            const token = this.generateToken(userJson.id);
+
+            return { user: userJson, token };
+        } catch (error: any) {
+            console.error('Error registering user:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Login user
+     */
+    static async login(credentials: any): Promise<{ user: User, token: string }> {
+        try {
+            const { email, password } = credentials;
+
+            const user = await UserModel.findOne({ email });
+            if (!user) {
+                throw new Error('Invalid credentials');
+            }
+
+            const isMatch = await bcrypt.compare(password, user.password as string);
+            if (!isMatch) {
+                throw new Error('Invalid credentials');
+            }
+
+            user.lastLogin = new Date();
+            await user.save();
+
+            const userJson = user.toJSON() as unknown as User;
+            const token = this.generateToken(userJson.id);
+
+            return { user: userJson, token };
+        } catch (error: any) {
+            console.error('Error logging in:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Google Login
+     */
+    static async googleLogin(idToken: string): Promise<{ user: User, token: string }> {
+        try {
+            const ticket = await googleClient.verifyIdToken({
+                idToken,
+                audience: process.env.GOOGLE_CLIENT_ID || '636666241864-fronahev0ijj9vr0a0lue6lhuunqnp87.apps.googleusercontent.com',
+            });
+
+            const payload = ticket.getPayload();
+            if (!payload || !payload.email) {
+                throw new Error('Invalid Google token');
+            }
+
+            const { email, name, picture } = payload;
+
+            let user = await UserModel.findOne({ email });
+
+            if (!user) {
+                // Create new user if doesn't exist
+                user = new UserModel({
+                    name: name || 'Google User',
+                    email,
+                    avatar: picture,
+                    createdAt: new Date(),
+                    lastLogin: new Date(),
+                    preferences: {
+                        theme: 'auto',
+                        notificationsEnabled: true,
+                        workHoursStart: 9,
+                        workHoursEnd: 17,
+                        focusTimeGoal: 120
+                    },
+                });
+                await user.save();
+                await this.seedInitialData(user.id);
+            } else {
+                user.lastLogin = new Date();
+                if (picture) user.avatar = picture;
+                await user.save();
+            }
+
+            const userJson = user.toJSON() as unknown as User;
+            const token = this.generateToken(userJson.id);
+
+            return { user: userJson, token };
+        } catch (error: any) {
+            console.error('Error with Google Login:', error.message);
+            throw error;
+        }
+    }
+
+    private static generateToken(userId: string): string {
+        const secret = process.env.JWT_SECRET || 'your-default-jwt-secret';
+        return jwt.sign({ id: userId }, secret, { expiresIn: '30d' });
+    }
+
+    /**
+     * Create a new user (Legacy/Fallback)
      */
     static async createUser(user: Partial<User> & { id: string }): Promise<User> {
         try {

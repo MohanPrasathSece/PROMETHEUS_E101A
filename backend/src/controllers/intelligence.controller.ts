@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { InsightService } from '../services/insight.service';
 import { PriorityService } from '../services/priority.service';
 import { AnalyticsService } from '../services/analytics.service';
+import { ChatService } from '../services/chat.service';
 
 export class IntelligenceController {
     /**
@@ -9,7 +10,11 @@ export class IntelligenceController {
      */
     static async generateInsights(req: Request, res: Response) {
         try {
-            const insights = await InsightService.generateInsights(req.params.userId);
+            const userId = req.params.userId || (req as any).user?.id;
+            if (!userId) {
+                return res.status(400).json({ success: false, error: 'User ID is required' });
+            }
+            const insights = await InsightService.generateInsights(userId);
             res.json({ success: true, data: insights });
         } catch (error: any) {
             res.status(500).json({ success: false, error: error.message });
@@ -45,7 +50,11 @@ export class IntelligenceController {
      */
     static async generateRecommendations(req: Request, res: Response) {
         try {
-            const recommendations = await PriorityService.generateRecommendations(req.params.userId);
+            const userId = req.params.userId || (req as any).user?.id;
+            if (!userId) {
+                return res.status(400).json({ success: false, error: 'User ID is required' });
+            }
+            const recommendations = await PriorityService.generateRecommendations(userId);
             res.json({ success: true, data: recommendations });
         } catch (error: any) {
             res.status(500).json({ success: false, error: error.message });
@@ -69,7 +78,11 @@ export class IntelligenceController {
      */
     static async calculateCognitiveLoad(req: Request, res: Response) {
         try {
-            const cognitiveLoad = await AnalyticsService.calculateCognitiveLoad(req.params.userId);
+            const userId = req.params.userId || (req as any).user?.id;
+            if (!userId) {
+                return res.status(400).json({ success: false, error: 'User ID is required' });
+            }
+            const cognitiveLoad = await AnalyticsService.calculateCognitiveLoad(userId);
             res.json({ success: true, data: cognitiveLoad });
         } catch (error: any) {
             res.status(500).json({ success: false, error: error.message });
@@ -123,6 +136,50 @@ export class IntelligenceController {
         try {
             await AnalyticsService.incrementContextSwitches(req.params.userId);
             res.json({ success: true, message: 'Context switch recorded' });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * Record focus session
+     */
+    static async recordFocusSession(req: Request, res: Response) {
+        try {
+            const { durationMinutes, tasksCompleted } = req.body;
+            await AnalyticsService.addFocusSession(req.params.userId, durationMinutes, tasksCompleted);
+            res.json({ success: true, message: 'Focus session recorded' });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * Get AI thread summary
+     */
+    static async getThreadSummary(req: Request, res: Response) {
+        try {
+            const summary = await InsightService.getThreadSummary(req.params.id);
+            res.json({ success: true, data: summary });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * Chat with AI
+     */
+    static async chat(req: Request, res: Response) {
+        try {
+            const userId = req.params.userId || (req as any).user?.id;
+            const { message, history } = req.body;
+
+            if (!userId) {
+                return res.status(400).json({ success: false, error: 'User ID is required' });
+            }
+
+            const response = await ChatService.processChat(userId, message, history);
+            res.json({ success: true, data: response });
         } catch (error: any) {
             res.status(500).json({ success: false, error: error.message });
         }

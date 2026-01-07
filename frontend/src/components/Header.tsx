@@ -4,8 +4,9 @@ import { ThemeToggle } from './ThemeToggle';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { CognitiveLoadMeter } from './CognitiveLoadMeter';
-import { mockCognitiveLoad } from '@/lib/mock-data';
 import { useAuth } from '@/contexts/AuthContext';
+import { useQuery } from '@tanstack/react-query';
+import { IntelligenceService } from '@/services/api';
 import {
   LayoutDashboard,
   Lightbulb,
@@ -32,6 +33,12 @@ export function Header({ isAuthenticated = false }: HeaderProps) {
   const navigate = useNavigate();
   const { currentUser, signOut } = useAuth();
 
+  const { data: cognitiveLoad } = useQuery({
+    queryKey: ['cognitiveLoad', currentUser?.id],
+    queryFn: () => currentUser?.id ? IntelligenceService.getCognitiveLoad(currentUser.id) : Promise.resolve(null),
+    enabled: !!currentUser
+  });
+
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/insights', label: 'Insights', icon: Lightbulb },
@@ -51,7 +58,7 @@ export function Header({ isAuthenticated = false }: HeaderProps) {
     return (
       <header className="fixed top-0 left-0 right-0 z-50 glass border-b">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <Logo />
+          <Logo size="lg" />
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <Button variant="ghost" asChild>
@@ -75,7 +82,7 @@ export function Header({ isAuthenticated = false }: HeaderProps) {
     <header className="fixed top-0 left-0 right-0 z-50 glass border-b">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-8">
-          <Logo />
+          <Logo size="lg" />
 
           <nav className="hidden md:flex items-center gap-1">
             {navItems.map((item) => (
@@ -99,7 +106,14 @@ export function Header({ isAuthenticated = false }: HeaderProps) {
         <div className="flex items-center gap-4">
           {/* Cognitive Load Indicator */}
           <div className="hidden lg:block">
-            <CognitiveLoadMeter load={mockCognitiveLoad} compact />
+            <CognitiveLoadMeter
+              load={cognitiveLoad || {
+                level: 'low',
+                score: 0,
+                factors: { activeThreads: 0, switchingFrequency: 0, workDuration: 0, pendingDeadlines: 0 }
+              }}
+              compact
+            />
           </div>
 
           <ThemeToggle />

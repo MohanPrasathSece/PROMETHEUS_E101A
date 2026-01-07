@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 import {
   Sparkles,
   Clock,
@@ -22,6 +23,7 @@ import { InsightCard } from '@/components/InsightCard';
 import { CognitiveLoadMeter } from '@/components/CognitiveLoadMeter';
 import { WorkItemRow } from '@/components/WorkItemRow';
 import { CreateThreadDialog } from '@/components/CreateThreadDialog';
+import { FocusTimer } from '@/components/FocusTimer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -68,6 +70,23 @@ export default function Dashboard() {
     queryKey: ['cognitiveLoad', userId],
     queryFn: () => userId ? IntelligenceService.getCognitiveLoad(userId) : Promise.resolve(null),
     enabled: !!userId
+  });
+
+  const queryClient = useQueryClient();
+
+  const dismissInsightMutation = useMutation({
+    mutationFn: (id: string) => IntelligenceService.dismissInsight(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['insights', userId] });
+      toast.success('Insight dismissed');
+    }
+  });
+
+  const markItemAsReadMutation = useMutation({
+    mutationFn: (id: string) => WorkItemService.markAsRead(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['items', userId] });
+    }
   });
 
   const greeting = () => {
@@ -144,7 +163,7 @@ export default function Dashboard() {
                       .slice(0, 2)
                       .map((rec, index: number) => (
                         <PriorityRecommendationCard
-                          key={rec.threadId}
+                          key={rec.id}
                           recommendation={rec as PriorityRecommendation & { thread: WorkThread }}
                           rank={index}
                           onSelect={() => navigate(`/thread/${rec.threadId}`)}
@@ -232,7 +251,14 @@ export default function Dashboard() {
                         ) : (
                           <div className="space-y-1">
                             {filterWorkItems(activeTab).slice(0, 5).map((item: WorkItem) => (
-                              <WorkItemRow key={item.id} item={item} />
+                              <WorkItemRow
+                                key={item.id}
+                                item={item}
+                                onClick={() => {
+                                  if (!item.isRead) markItemAsReadMutation.mutate(item.id);
+                                  if (item.threadId) navigate(`/thread/${item.threadId}`);
+                                }}
+                              />
                             ))}
                             {filterWorkItems(activeTab).length === 0 && (
                               <p className="text-center py-4 text-muted-foreground">No recent activity</p>
@@ -248,6 +274,9 @@ export default function Dashboard() {
 
             {/* Sidebar */}
             <div className="space-y-6">
+              {/* Focus Timer - Winning Feature */}
+              <FocusTimer />
+
               {/* Cognitive Load */}
               <Card>
                 <CardContent className="pt-6">
@@ -273,12 +302,20 @@ export default function Dashboard() {
                   {insightsLoading ? (
                     <div className="flex justify-center p-4"><Loader2 className="animate-spin text-muted-foreground" /></div>
                   ) : insights.length > 0 ? (
-                    insights.map((insight: WorkInsight) => (
-                      <InsightCard
-                        key={insight.id}
-                        insight={insight}
-                      />
-                    ))
+                    <AnimatePresence>
+                      {insights.map((insight: WorkInsight) => (
+                        <InsightCard
+                          key={insight.id}
+                          insight={insight}
+                          onDismiss={() => dismissInsightMutation.mutate(insight.id)}
+                          onAction={() => {
+                            if (insight.relatedThreadIds?.[0]) {
+                              navigate(`/thread/${insight.relatedThreadIds[0]}`);
+                            }
+                          }}
+                        />
+                      ))}
+                    </AnimatePresence>
                   ) : (
                     <p className="text-center text-muted-foreground text-sm">No new insights.</p>
                   )}

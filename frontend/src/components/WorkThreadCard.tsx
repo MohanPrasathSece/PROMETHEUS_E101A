@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { Clock, Users, AlertTriangle, ChevronRight } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 import { motion } from 'framer-motion';
 
 interface WorkThreadCardProps {
@@ -90,7 +90,7 @@ export function WorkThreadCard({ thread, onClick, isHighlighted = false }: WorkT
                   isNearDeadline && "text-destructive"
                 )}>
                   <Clock className="w-3.5 h-3.5" />
-                  <span>{formatDistanceToNow(thread.deadline, { addSuffix: true })}</span>
+                  <span>{format(new Date(thread.deadline), "MMM d, h:mm a")}</span>
                 </div>
               )}
               {thread.relatedPeople && thread.relatedPeople.length > 0 && (

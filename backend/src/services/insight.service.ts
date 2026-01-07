@@ -155,4 +155,51 @@ Respond in JSON format:
             detectedAt: { $lt: cutoffDate }
         });
     }
+
+    /**
+     * Generate an AI summary for a specific thread
+     */
+    static async getThreadSummary(threadId: string): Promise<{ summary: string, nextSteps: string[] }> {
+        const thread = await WorkThreadService.getThreadById(threadId);
+        if (!thread) throw new Error('Thread not found');
+
+        // Fetch items for context
+        // Note: For now, we'll assume the items are fetched elsewhere or just use the thread info
+        // To be better, we should fetch items from WorkItemService here
+        // But to keep it simple and avoid circular deps if they exist
+
+        try {
+            const context = {
+                title: thread.title,
+                description: thread.description,
+                priority: thread.priority,
+                progress: thread.progress,
+            };
+
+            const prompt = `Analyze this work thread and provide a concise summary and 3 prioritized next steps:
+${JSON.stringify(context, null, 2)}
+
+Respond ONLY in JSON format:
+{
+  "summary": "Consolidated summary of progress and state",
+  "nextSteps": ["Step 1", "Step 2", "Step 3"]
+}`;
+
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            const text = response.text();
+
+            const jsonMatch = text.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                return JSON.parse(jsonMatch[0]);
+            }
+            throw new Error('Could not parse AI response');
+        } catch (error) {
+            console.error('Error generating thread summary:', error);
+            return {
+                summary: `This is a ${thread.priority} priority thread about ${thread.title}. Current progress is ${thread.progress}%.`,
+                nextSteps: ["Review pending items", "Update progress", "Set next deadline"]
+            };
+        }
+    }
 }

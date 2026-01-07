@@ -1,0 +1,115 @@
+// Monocle Core Types
+
+export interface User {
+    id: string;
+    name: string;
+    email: string;
+    avatar?: string;
+    createdAt: Date;
+    lastLogin?: Date;
+    preferences?: UserPreferences;
+}
+
+export interface UserPreferences {
+    workHoursStart: number; // Hour of day (0-23)
+    workHoursEnd: number;
+    focusTimeGoal: number; // minutes per day
+    notificationsEnabled: boolean;
+    theme: 'light' | 'dark' | 'auto';
+}
+
+export interface WorkItem {
+    id: string;
+    userId: string;
+    type: 'email' | 'message' | 'document' | 'calendar' | 'task';
+    title: string;
+    source: string;
+    timestamp: Date;
+    preview?: string;
+    isRead?: boolean;
+    threadId?: string;
+    metadata?: Record<string, any>;
+}
+
+export interface WorkThread {
+    id: string;
+    userId: string;
+    title: string;
+    description?: string;
+    itemIds: string[];
+    priority: 'high' | 'medium' | 'low';
+    deadline?: Date;
+    lastActivity: Date;
+    progress: number; // 0-100
+    isIgnored?: boolean;
+    relatedPeople?: string[];
+    tags?: string[];
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+export interface PriorityRecommendation {
+    id: string;
+    userId: string;
+    threadId: string;
+    score: number; // 0-100
+    reasoning: {
+        title: string;
+        description: string;
+        factors: PriorityFactor[];
+    };
+    generatedAt: Date;
+    isActive: boolean;
+}
+
+export interface PriorityFactor {
+    label: string;
+    weight: 'high' | 'medium' | 'low';
+    description: string;
+}
+
+export interface WorkInsight {
+    id: string;
+    userId: string;
+    type: 'attention-leak' | 'ignored-work' | 'overload' | 'momentum-drift' | 'deadline-risk';
+    title: string;
+    description: string;
+    severity: 'info' | 'warning' | 'critical';
+    relatedThreadIds?: string[];
+    actionSuggestion?: string;
+    detectedAt: Date;
+    isActive: boolean;
+    isDismissed?: boolean;
+}
+
+export interface CognitiveLoadState {
+    id: string;
+    userId: string;
+    level: 'low' | 'medium' | 'high' | 'critical';
+    score: number; // 0-100
+    factors: {
+        activeThreads: number;
+        switchingFrequency: number; // per hour
+        workDuration: number; // hours
+        pendingDeadlines: number;
+    };
+    timestamp: Date;
+}
+
+export interface DailyStats {
+    id: string;
+    userId: string;
+    date: Date;
+    focusTime: number; // minutes
+    contextSwitches: number;
+    completedTasks: number;
+    activeThreads: number;
+}
+
+export interface Activity {
+    id: string;
+    userId: string;
+    type: 'thread-created' | 'thread-updated' | 'item-added' | 'context-switch' | 'focus-session';
+    timestamp: Date;
+    metadata: Record<string, any>;
+}

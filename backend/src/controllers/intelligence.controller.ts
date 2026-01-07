@@ -1,0 +1,130 @@
+import { Request, Response } from 'express';
+import { InsightService } from '../services/insight.service';
+import { PriorityService } from '../services/priority.service';
+import { AnalyticsService } from '../services/analytics.service';
+
+export class IntelligenceController {
+    /**
+     * Generate insights for a user
+     */
+    static async generateInsights(req: Request, res: Response) {
+        try {
+            const insights = await InsightService.generateInsights(req.params.userId);
+            res.json({ success: true, data: insights });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * Get active insights
+     */
+    static async getActiveInsights(req: Request, res: Response) {
+        try {
+            const insights = await InsightService.getActiveInsights(req.params.userId);
+            res.json({ success: true, data: insights });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * Dismiss an insight
+     */
+    static async dismissInsight(req: Request, res: Response) {
+        try {
+            await InsightService.dismissInsight(req.params.id);
+            res.json({ success: true, message: 'Insight dismissed' });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * Generate priority recommendations
+     */
+    static async generateRecommendations(req: Request, res: Response) {
+        try {
+            const recommendations = await PriorityService.generateRecommendations(req.params.userId);
+            res.json({ success: true, data: recommendations });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * Get active recommendations
+     */
+    static async getActiveRecommendations(req: Request, res: Response) {
+        try {
+            const recommendations = await PriorityService.getActiveRecommendations(req.params.userId);
+            res.json({ success: true, data: recommendations });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * Calculate cognitive load
+     */
+    static async calculateCognitiveLoad(req: Request, res: Response) {
+        try {
+            const cognitiveLoad = await AnalyticsService.calculateCognitiveLoad(req.params.userId);
+            res.json({ success: true, data: cognitiveLoad });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * Get latest cognitive load
+     */
+    static async getLatestCognitiveLoad(req: Request, res: Response) {
+        try {
+            const cognitiveLoad = await AnalyticsService.getLatestCognitiveLoad(req.params.userId);
+            if (!cognitiveLoad) {
+                return res.status(404).json({ success: false, error: 'Cognitive load data not found' });
+            }
+            res.json({ success: true, data: cognitiveLoad });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * Get daily stats
+     */
+    static async getDailyStats(req: Request, res: Response) {
+        try {
+            const daysAgo = parseInt(req.query.days as string) || 7;
+            const stats = await AnalyticsService.getDailyStats(req.params.userId, daysAgo);
+            res.json({ success: true, data: stats });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * Update daily stats
+     */
+    static async updateDailyStats(req: Request, res: Response) {
+        try {
+            await AnalyticsService.updateDailyStats(req.params.userId, req.body);
+            res.json({ success: true, message: 'Stats updated successfully' });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * Record context switch
+     */
+    static async recordContextSwitch(req: Request, res: Response) {
+        try {
+            await AnalyticsService.incrementContextSwitches(req.params.userId);
+            res.json({ success: true, message: 'Context switch recorded' });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+}

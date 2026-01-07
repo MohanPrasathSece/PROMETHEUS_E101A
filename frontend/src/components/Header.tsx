@@ -12,7 +12,8 @@ import {
   Lightbulb,
   User,
   Settings,
-  LogOut
+  LogOut,
+  Share2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -42,6 +43,7 @@ export function Header({ isAuthenticated = false }: HeaderProps) {
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/insights', label: 'Insights', icon: Lightbulb },
+    { path: '/integrations', label: 'Integrations', icon: Share2 },
     { path: '/profile', label: 'Profile', icon: User },
   ];
 

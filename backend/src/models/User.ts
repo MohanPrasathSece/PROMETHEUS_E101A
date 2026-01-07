@@ -20,7 +20,19 @@ const UserSchema: Schema = new Schema({
     avatar: { type: String },
     createdAt: { type: Date, default: Date.now },
     lastLogin: { type: Date, default: Date.now },
-    preferences: { type: UserPreferencesSchema, default: () => ({}) }
+    preferences: { type: UserPreferencesSchema, default: () => ({}) },
+    integrations: {
+        google: {
+            connected: { type: Boolean, default: false },
+            lastSync: { type: Date },
+            email: { type: String }
+        },
+        notion: {
+            connected: { type: Boolean, default: false },
+            apiKey: { type: String }, // Storing user provided key for simplicity
+            lastSync: { type: Date }
+        }
+    }
 });
 
 // Use a standard MongoDB ID for all users.

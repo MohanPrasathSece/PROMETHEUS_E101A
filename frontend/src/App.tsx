@@ -12,6 +12,7 @@ import Dashboard from "./pages/Dashboard";
 import WorkThreadDetail from "./pages/WorkThreadDetail";
 import InsightsPage from "./pages/InsightsPage";
 import ProfilePage from "./pages/ProfilePage";
+import IntegrationsPage from "./pages/IntegrationsPage";
 import NotFound from "./pages/NotFound";
 import { AIChatBot } from "./components/AIChatBot";
 
@@ -59,6 +60,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <ProfilePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/integrations"
+                element={
+                  <ProtectedRoute>
+                    <IntegrationsPage />
                   </ProtectedRoute>
                 }
               />

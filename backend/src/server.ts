@@ -5,6 +5,7 @@ import userRoutes from './routes/user.routes';
 import threadRoutes from './routes/thread.routes';
 import workitemRoutes from './routes/workitem.routes';
 import intelligenceRoutes from './routes/intelligence.routes';
+import integrationRoutes from './routes/integration.routes';
 import { authMiddleware } from './middleware/auth.middleware';
 
 // Load environment variables
@@ -63,6 +64,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/threads', authMiddleware, threadRoutes);
 app.use('/api/items', authMiddleware, workitemRoutes);
 app.use('/api/intelligence', authMiddleware, intelligenceRoutes);
+app.use('/api/integrations', authMiddleware, integrationRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

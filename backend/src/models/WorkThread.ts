@@ -15,6 +15,8 @@ const WorkThreadSchema: Schema = new Schema({
     isIgnored: { type: Boolean, default: false },
     relatedPeople: [{ type: String }],
     tags: [{ type: String }],
+    teamId: { type: String, index: true },
+    assigneeId: { type: String, index: true },
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now }
 });

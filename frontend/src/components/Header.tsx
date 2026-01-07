@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   Lightbulb,
   User,
+  Users,
   Settings,
   LogOut,
   Share2
@@ -42,6 +43,7 @@ export function Header({ isAuthenticated = false }: HeaderProps) {
 
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/teams', label: 'Teams', icon: Users },
     { path: '/insights', label: 'Insights', icon: Lightbulb },
     { path: '/integrations', label: 'Integrations', icon: Share2 },
     { path: '/profile', label: 'Profile', icon: User },

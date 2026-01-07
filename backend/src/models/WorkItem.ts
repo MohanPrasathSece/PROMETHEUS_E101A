@@ -12,6 +12,8 @@ const WorkItemSchema: Schema = new Schema({
     preview: { type: String },
     isRead: { type: Boolean, default: false },
     threadId: { type: String, index: true },
+    teamId: { type: String, index: true },
+    assigneeId: { type: String, index: true },
     metadata: { type: Map, of: Schema.Types.Mixed }
 });
 

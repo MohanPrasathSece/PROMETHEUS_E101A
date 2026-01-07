@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { User, WorkThread, WorkItem, WorkInsight, PriorityRecommendation, DailyStats, CognitiveLoadState } from '@/lib/types';
+import { User, WorkThread, WorkItem, WorkInsight, PriorityRecommendation, DailyStats, CognitiveLoadState, Team } from '@/lib/types';
 
 const API_URL = 'http://localhost:5000/api';
 
@@ -120,6 +120,35 @@ export const IntelligenceService = {
     chat: async (userId: string, message: string, history: any[]) => {
         const response = await api.post(`/intelligence/chat/${userId}`, { message, history });
         return response.data.data;
+    }
+};
+
+
+
+export const TeamService = {
+    create: async (name: string, description?: string) => {
+        const response = await api.post('/teams', { name, description });
+        return response.data.data;
+    },
+    getMyTeams: async () => {
+        const response = await api.get('/teams');
+        return response.data.data as Team[];
+    },
+    get: async (id: string) => {
+        const response = await api.get(`/teams/${id}`);
+        return response.data.data as Team;
+    },
+    invite: async (teamId: string, email: string) => {
+        const response = await api.post(`/teams/${teamId}/invite`, { email });
+        return response.data.data; // contains id, token, link
+    },
+    join: async (token: string) => {
+        const response = await api.post('/teams/join', { token });
+        return response.data.data as Team;
+    },
+    removeMember: async (teamId: string, memberId: string) => {
+        const response = await api.delete(`/teams/${teamId}/members/${memberId}`);
+        return response.data.data as Team;
     }
 };
 

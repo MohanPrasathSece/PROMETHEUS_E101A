@@ -13,6 +13,9 @@ import WorkThreadDetail from "./pages/WorkThreadDetail";
 import InsightsPage from "./pages/InsightsPage";
 import ProfilePage from "./pages/ProfilePage";
 import IntegrationsPage from "./pages/IntegrationsPage";
+import TeamsPage from "./pages/TeamsPage";
+import TeamDetailsPage from "./pages/TeamDetailsPage";
+import InviteAcceptPage from "./pages/InviteAcceptPage";
 import NotFound from "./pages/NotFound";
 import { AIChatBot } from "./components/AIChatBot";
 
@@ -68,6 +71,30 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <IntegrationsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/teams"
+                element={
+                  <ProtectedRoute>
+                    <TeamsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/teams/join"
+                element={
+                  <ProtectedRoute>
+                    <InviteAcceptPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/teams/:teamId"
+                element={
+                  <ProtectedRoute>
+                    <TeamDetailsPage />
                   </ProtectedRoute>
                 }
               />

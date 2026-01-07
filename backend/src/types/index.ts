@@ -28,6 +28,8 @@ export interface WorkItem {
     preview?: string;
     isRead?: boolean;
     threadId?: string;
+    teamId?: string;
+    assigneeId?: string;
     metadata?: Record<string, any>;
 }
 
@@ -46,6 +48,34 @@ export interface WorkThread {
     tags?: string[];
     createdAt: Date;
     updatedAt: Date;
+    teamId?: string;
+    assigneeId?: string;
+}
+
+export interface Team {
+    id: string;
+    name: string;
+    description?: string;
+    ownerId: string;
+    members: TeamMember[];
+    createdAt: Date;
+}
+
+export interface TeamMember {
+    userId: string;
+    role: 'admin' | 'member';
+    joinedAt: Date;
+    email?: string;
+    name?: string;
+}
+
+export interface Invitation {
+    id: string;
+    teamId: string;
+    inviterId: string;
+    email: string;
+    status: 'pending' | 'accepted' | 'expired';
+    expiresAt: Date;
 }
 
 export interface PriorityRecommendation {

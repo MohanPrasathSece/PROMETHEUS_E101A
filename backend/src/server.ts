@@ -6,6 +6,7 @@ import threadRoutes from './routes/thread.routes';
 import workitemRoutes from './routes/workitem.routes';
 import intelligenceRoutes from './routes/intelligence.routes';
 import integrationRoutes from './routes/integration.routes';
+import teamRoutes from './routes/team.routes';
 import { authMiddleware } from './middleware/auth.middleware';
 
 // Load environment variables
@@ -65,6 +66,7 @@ app.use('/api/threads', authMiddleware, threadRoutes);
 app.use('/api/items', authMiddleware, workitemRoutes);
 app.use('/api/intelligence', authMiddleware, intelligenceRoutes);
 app.use('/api/integrations', authMiddleware, integrationRoutes);
+app.use('/api/teams', authMiddleware, teamRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {
@@ -100,6 +102,7 @@ app.listen(PORT, () => {
 ║   - Threads API: http://localhost:${PORT}/api/threads   ║
 ║   - Items API: http://localhost:${PORT}/api/items       ║
 ║   - Intelligence API: http://localhost:${PORT}/api/intelligence║
+║   - Teams API: http://localhost:${PORT}/api/teams       ║
 ║                                                        ║
 ║   MongoDB: Connected ✓                                 ║
 ║   Gemini AI: Enabled ✓                                 ║

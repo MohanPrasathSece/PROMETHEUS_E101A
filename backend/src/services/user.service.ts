@@ -1,66 +1,48 @@
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where, Timestamp } from 'firebase/firestore';
-import { db } from '../config/firebase';
 import { User, UserPreferences } from '../types';
-
-const USERS_COLLECTION = 'users';
+import { UserModel } from '../models/User';
+import { WorkThreadModel } from '../models/WorkThread';
+import { WorkItemModel } from '../models/WorkItem';
 
 export class UserService {
     /**
      * Create a new user
      */
     static async createUser(user: Partial<User> & { id: string }): Promise<User> {
-        const userRef = doc(db, USERS_COLLECTION, user.id);
-        const userDoc = await getDoc(userRef);
-
-        if (userDoc.exists()) {
-            await updateDoc(userRef, {
-                lastLogin: Timestamp.fromDate(new Date()),
-            });
-            const data = userDoc.data() as any;
-            return {
-                id: userDoc.id,
-                name: data.name,
-                email: data.email,
-                avatar: data.avatar,
-                createdAt: data.createdAt.toDate(),
-                lastLogin: new Date(),
-                preferences: data.preferences,
-            };
-        }
-
-        const newUser: User = {
-            id: user.id,
-            name: user.name || 'Unknown User',
-            email: user.email || '',
-            avatar: user.avatar,
-            createdAt: new Date(),
-            lastLogin: new Date(),
-            preferences: {
-                theme: 'auto',
-                notificationsEnabled: true,
-                workHoursStart: 9,
-                workHoursEnd: 17,
-                focusTimeGoal: 120
-            },
-        };
-
         try {
-            await setDoc(userRef, {
-                ...newUser,
-                createdAt: Timestamp.fromDate(newUser.createdAt),
-                lastLogin: Timestamp.fromDate(newUser.lastLogin!),
+            let existingUser = await UserModel.findOne({ $or: [{ _id: user.id }, { email: user.email }] });
+
+            if (existingUser) {
+                existingUser.lastLogin = new Date();
+                await existingUser.save();
+                return existingUser.toJSON() as unknown as User;
+            }
+
+            const newUser = new UserModel({
+                _id: user.id,
+                name: user.name || 'Unknown User',
+                email: user.email || '',
+                avatar: user.avatar,
+                createdAt: new Date(),
+                lastLogin: new Date(),
+                preferences: {
+                    theme: 'auto',
+                    notificationsEnabled: true,
+                    workHoursStart: 9,
+                    workHoursEnd: 17,
+                    focusTimeGoal: 120
+                },
             });
+
+            await newUser.save();
 
             // Seed initial data for new users
-            await this.seedInitialData(newUser.id);
-        } catch (error: any) {
-            console.error('Error creating/seeding user in Firestore (falling back to local user object):', error.message);
-            if (error.code === 7 || error.message?.includes('PERMISSION_DENIED')) {
-                console.error('CRITICAL: Firestore Cloud API is not enabled. Please enable it in Google Cloud Console.');
-            }
-        }
+            await this.seedInitialData(user.id);
 
-        return newUser;
+            return newUser.toJSON() as unknown as User;
+        } catch (error: any) {
+            console.error('Error creating user in MongoDB:', error.message);
+            throw error;
+        }
     }
 
     private static async seedInitialData(userId: string) {
@@ -112,33 +94,30 @@ export class UserService {
         ];
 
         for (const threadData of threadsData) {
-            const threadRef = doc(collection(db, 'workThreads'));
-            await setDoc(threadRef, {
+            const newThread = new WorkThreadModel({
                 ...threadData,
-                id: threadRef.id,
-                createdAt: Timestamp.fromDate(now),
-                updatedAt: Timestamp.fromDate(now),
-                lastActivity: Timestamp.fromDate(threadData.lastActivity as Date),
-                deadline: threadData.deadline ? Timestamp.fromDate(threadData.deadline as Date) : null
+                createdAt: now,
+                updatedAt: now,
             });
+            await newThread.save();
 
             // Seed items for this thread
             if (threadData.title === 'Q4 Strategic Planning') {
-                const itemRef = doc(collection(db, 'workItems'));
-                await setDoc(itemRef, {
-                    id: itemRef.id,
+                const newItem = new WorkItemModel({
                     userId,
-                    threadId: threadRef.id,
+                    threadId: newThread.id,
                     type: 'email',
                     title: 'Budget Approval Request',
-                    content: 'Hi Team, please review the attached budget proposal for Q4.',
                     source: 'Gmail',
-                    url: 'https://mail.google.com',
+                    preview: 'Hi Team, please review the attached budget proposal for Q4.',
                     isRead: false,
-                    receivedAt: Timestamp.fromDate(now),
-                    priority: 'high',
-                    createdAt: Timestamp.fromDate(now)
+                    timestamp: now,
+                    metadata: {
+                        url: 'https://mail.google.com',
+                        priority: 'high'
+                    }
                 });
+                await newItem.save();
             }
         }
     }
@@ -147,85 +126,48 @@ export class UserService {
      * Get user by ID
      */
     static async getUserById(userId: string): Promise<User | null> {
-        const userDoc = await getDoc(doc(db, USERS_COLLECTION, userId));
-
-        if (!userDoc.exists()) {
-            return null;
-        }
-
-        const data = userDoc.data() as any;
-        return {
-            id: userDoc.id,
-            name: data.name,
-            email: data.email,
-            avatar: data.avatar,
-            createdAt: data.createdAt.toDate(),
-            lastLogin: data.lastLogin?.toDate(),
-            preferences: data.preferences,
-        };
+        const user = await UserModel.findById(userId);
+        return user ? (user.toJSON() as unknown as User) : null;
     }
 
     /**
      * Get user by email
      */
     static async getUserByEmail(email: string): Promise<User | null> {
-        const q = query(collection(db, USERS_COLLECTION), where('email', '==', email));
-        const querySnapshot = await getDocs(q);
-
-        if (querySnapshot.empty) {
-            return null;
-        }
-
-        const userDoc = querySnapshot.docs[0];
-        const data = userDoc.data() as any;
-        return {
-            id: userDoc.id,
-            name: data.name,
-            email: data.email,
-            avatar: data.avatar,
-            createdAt: data.createdAt.toDate(),
-            lastLogin: data.lastLogin?.toDate(),
-            preferences: data.preferences,
-        };
+        const user = await UserModel.findOne({ email });
+        return user ? (user.toJSON() as unknown as User) : null;
     }
 
     /**
      * Update user
      */
     static async updateUser(userId: string, updates: Partial<User>): Promise<void> {
-        const userRef = doc(db, USERS_COLLECTION, userId);
-        const updateData: any = { ...updates };
-
-        // Convert Date objects to Timestamps
-        if (updates.lastLogin) {
-            updateData.lastLogin = Timestamp.fromDate(updates.lastLogin);
-        }
-
-        await updateDoc(userRef, updateData);
+        await UserModel.findByIdAndUpdate(userId, {
+            ...updates,
+            updatedAt: new Date()
+        });
     }
 
     /**
      * Update user preferences
      */
     static async updatePreferences(userId: string, preferences: UserPreferences): Promise<void> {
-        const userRef = doc(db, USERS_COLLECTION, userId);
-        await updateDoc(userRef, { preferences });
+        await UserModel.findByIdAndUpdate(userId, { preferences });
     }
 
     /**
      * Delete user
      */
     static async deleteUser(userId: string): Promise<void> {
-        await deleteDoc(doc(db, USERS_COLLECTION, userId));
+        await UserModel.findByIdAndDelete(userId);
     }
 
     /**
      * Update last login
      */
     static async updateLastLogin(userId: string): Promise<void> {
-        const userRef = doc(db, USERS_COLLECTION, userId);
-        await updateDoc(userRef, {
-            lastLogin: Timestamp.fromDate(new Date()),
+        await UserModel.findByIdAndUpdate(userId, {
+            lastLogin: new Date()
         });
     }
 }

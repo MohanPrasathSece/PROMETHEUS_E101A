@@ -1,10 +1,7 @@
-import { collection, doc, getDocs, setDoc, query, where, orderBy, Timestamp, deleteDoc } from 'firebase/firestore';
-import { db } from '../config/firebase';
 import { model } from '../config/gemini';
-import { WorkInsight, WorkThread } from '../types';
+import { WorkInsight } from '../types';
 import { WorkThreadService } from './thread.service';
-
-const INSIGHTS_COLLECTION = 'workInsights';
+import { WorkInsightModel } from '../models/WorkInsight';
 
 export class InsightService {
     /**
@@ -18,7 +15,7 @@ export class InsightService {
         const ignoredThreads = threads.filter(t => t.isIgnored && t.deadline);
         for (const thread of ignoredThreads) {
             if (thread.deadline) {
-                const daysUntilDeadline = Math.ceil((thread.deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                const daysUntilDeadline = Math.ceil((new Date(thread.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 
                 if (daysUntilDeadline <= 3) {
                     const insight = await this.createInsight({
@@ -31,6 +28,7 @@ export class InsightService {
                         actionSuggestion: `Consider unblocking time to work on this before the deadline.`,
                         detectedAt: new Date(),
                         isActive: true,
+                        isDismissed: false
                     });
                     insights.push(insight);
                 }
@@ -41,8 +39,8 @@ export class InsightService {
         const activeThreads = threads.filter(t => !t.isIgnored && t.deadline);
         for (const thread of activeThreads) {
             if (thread.deadline) {
-                const daysUntilDeadline = Math.ceil((thread.deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-                const progressPerDay = thread.progress / Math.max(1, Math.ceil((Date.now() - thread.createdAt.getTime()) / (1000 * 60 * 60 * 24)));
+                const daysUntilDeadline = Math.ceil((new Date(thread.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                const progressPerDay = thread.progress / Math.max(1, Math.ceil((Date.now() - new Date(thread.createdAt).getTime()) / (1000 * 60 * 60 * 24)));
                 const requiredProgressPerDay = (100 - thread.progress) / Math.max(1, daysUntilDeadline);
 
                 if (requiredProgressPerDay > progressPerDay * 1.5 && thread.progress < 80) {
@@ -56,6 +54,7 @@ export class InsightService {
                         actionSuggestion: `Block ${Math.ceil((100 - thread.progress) / 10)} hours of focus time to address this.`,
                         detectedAt: new Date(),
                         isActive: true,
+                        isDismissed: false
                     });
                     insights.push(insight);
                 }
@@ -68,7 +67,7 @@ export class InsightService {
                 title: t.title,
                 priority: t.priority,
                 progress: t.progress,
-                deadline: t.deadline?.toISOString(),
+                deadline: t.deadline instanceof Date ? t.deadline.toISOString() : t.deadline,
             }));
 
             const prompt = `Analyze these work threads and provide ONE actionable insight about work patterns or productivity:
@@ -100,6 +99,7 @@ Respond in JSON format:
                     actionSuggestion: aiInsight.actionSuggestion,
                     detectedAt: new Date(),
                     isActive: true,
+                    isDismissed: false
                 });
                 insights.push(insight);
             }
@@ -114,42 +114,33 @@ Respond in JSON format:
      * Create a new insight
      */
     static async createInsight(insight: Omit<WorkInsight, 'id'>): Promise<WorkInsight> {
-        const insightRef = doc(collection(db, INSIGHTS_COLLECTION));
-        const newInsight: WorkInsight = {
+        const newInsight = new WorkInsightModel({
             ...insight,
-            id: insightRef.id,
-        };
-
-        await setDoc(insightRef, {
-            ...newInsight,
-            detectedAt: Timestamp.fromDate(newInsight.detectedAt),
+            detectedAt: insight.detectedAt || new Date()
         });
 
-        return newInsight;
+        await newInsight.save();
+        return newInsight.toJSON() as unknown as WorkInsight;
     }
 
     /**
      * Get active insights for a user
      */
     static async getActiveInsights(userId: string): Promise<WorkInsight[]> {
-        const q = query(
-            collection(db, INSIGHTS_COLLECTION),
-            where('userId', '==', userId),
-            where('isActive', '==', true),
-            where('isDismissed', '!=', true),
-            orderBy('detectedAt', 'desc')
-        );
+        const insights = await WorkInsightModel.find({
+            userId,
+            isActive: true,
+            isDismissed: { $ne: true }
+        }).sort({ detectedAt: -1 });
 
-        const querySnapshot = await getDocs(q);
-        return querySnapshot.docs.map(doc => this.mapDocToInsight(doc));
+        return insights.map(i => i.toJSON() as unknown as WorkInsight);
     }
 
     /**
      * Dismiss an insight
      */
     static async dismissInsight(insightId: string): Promise<void> {
-        const insightRef = doc(db, INSIGHTS_COLLECTION, insightId);
-        await setDoc(insightRef, { isDismissed: true }, { merge: true });
+        await WorkInsightModel.findByIdAndUpdate(insightId, { isDismissed: true });
     }
 
     /**
@@ -159,34 +150,9 @@ Respond in JSON format:
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
-        const q = query(
-            collection(db, INSIGHTS_COLLECTION),
-            where('userId', '==', userId),
-            where('detectedAt', '<', Timestamp.fromDate(cutoffDate))
-        );
-
-        const querySnapshot = await getDocs(q);
-        const deletePromises = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
-        await Promise.all(deletePromises);
-    }
-
-    /**
-     * Helper to map Firestore document to WorkInsight
-     */
-    private static mapDocToInsight(doc: any): WorkInsight {
-        const data = doc.data();
-        return {
-            id: doc.id,
-            userId: data.userId,
-            type: data.type,
-            title: data.title,
-            description: data.description,
-            severity: data.severity,
-            relatedThreadIds: data.relatedThreadIds || [],
-            actionSuggestion: data.actionSuggestion,
-            detectedAt: data.detectedAt.toDate(),
-            isActive: data.isActive,
-            isDismissed: data.isDismissed || false,
-        };
+        await WorkInsightModel.deleteMany({
+            userId,
+            detectedAt: { $lt: cutoffDate }
+        });
     }
 }

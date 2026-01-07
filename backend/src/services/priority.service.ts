@@ -1,10 +1,7 @@
-import { collection, doc, getDocs, setDoc, query, where, orderBy, Timestamp } from 'firebase/firestore';
-import { db } from '../config/firebase';
 import { model } from '../config/gemini';
 import { PriorityRecommendation, WorkThread } from '../types';
 import { WorkThreadService } from './thread.service';
-
-const RECOMMENDATIONS_COLLECTION = 'priorityRecommendations';
+import { PriorityRecommendationModel } from '../models/PriorityRecommendation';
 
 export class PriorityService {
     /**
@@ -24,8 +21,8 @@ export class PriorityService {
 Thread: ${thread.title}
 Priority: ${thread.priority}
 Progress: ${thread.progress}%
-Deadline: ${thread.deadline?.toISOString() || 'None'}
-Last Activity: ${thread.lastActivity.toISOString()}
+Deadline: ${thread.deadline instanceof Date ? thread.deadline.toISOString() : (thread.deadline || 'None')}
+Last Activity: ${thread.lastActivity instanceof Date ? thread.lastActivity.toISOString() : thread.lastActivity}
 
 Provide a JSON response with:
 {
@@ -88,7 +85,7 @@ Provide a JSON response with:
 
         // Deadline proximity
         if (thread.deadline) {
-            const daysUntilDeadline = (thread.deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+            const daysUntilDeadline = (new Date(thread.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24);
             if (daysUntilDeadline <= 1) score += 30;
             else if (daysUntilDeadline <= 3) score += 20;
             else if (daysUntilDeadline <= 7) score += 10;
@@ -101,7 +98,7 @@ Provide a JSON response with:
 
         // Ignored work with deadlines
         if (thread.isIgnored && thread.deadline) {
-            const daysUntilDeadline = (thread.deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+            const daysUntilDeadline = (new Date(thread.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24);
             if (daysUntilDeadline <= 3) score += 25;
         }
 
@@ -128,7 +125,7 @@ Provide a JSON response with:
         }
 
         if (thread.deadline) {
-            const daysUntilDeadline = Math.ceil((thread.deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+            const daysUntilDeadline = Math.ceil((new Date(thread.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
             factors.push({
                 label: 'Deadline Proximity',
                 weight: daysUntilDeadline <= 2 ? 'high' as const : 'medium' as const,
@@ -155,48 +152,24 @@ Provide a JSON response with:
      * Create a new recommendation
      */
     static async createRecommendation(recommendation: Omit<PriorityRecommendation, 'id'>): Promise<PriorityRecommendation> {
-        const recRef = doc(collection(db, RECOMMENDATIONS_COLLECTION));
-        const newRec: PriorityRecommendation = {
+        const newRec = new PriorityRecommendationModel({
             ...recommendation,
-            id: recRef.id,
-        };
-
-        await setDoc(recRef, {
-            ...newRec,
-            generatedAt: Timestamp.fromDate(newRec.generatedAt),
+            generatedAt: recommendation.generatedAt || new Date()
         });
 
-        return newRec;
+        await newRec.save();
+        return newRec.toJSON() as unknown as PriorityRecommendation;
     }
 
     /**
      * Get active recommendations for a user
      */
     static async getActiveRecommendations(userId: string): Promise<PriorityRecommendation[]> {
-        const q = query(
-            collection(db, RECOMMENDATIONS_COLLECTION),
-            where('userId', '==', userId),
-            where('isActive', '==', true),
-            orderBy('score', 'desc')
-        );
+        const recommendations = await PriorityRecommendationModel.find({
+            userId,
+            isActive: true
+        }).sort({ score: -1 });
 
-        const querySnapshot = await getDocs(q);
-        return querySnapshot.docs.map(doc => this.mapDocToRecommendation(doc));
-    }
-
-    /**
-     * Helper to map Firestore document to PriorityRecommendation
-     */
-    private static mapDocToRecommendation(doc: any): PriorityRecommendation {
-        const data = doc.data();
-        return {
-            id: doc.id,
-            userId: data.userId,
-            threadId: data.threadId,
-            score: data.score,
-            reasoning: data.reasoning,
-            generatedAt: data.generatedAt.toDate(),
-            isActive: data.isActive,
-        };
+        return recommendations.map(r => r.toJSON() as unknown as PriorityRecommendation);
     }
 }

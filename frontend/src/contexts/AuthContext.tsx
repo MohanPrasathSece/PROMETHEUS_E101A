@@ -1,20 +1,22 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import {
-    User,
-    signInWithPopup,
-    signOut as firebaseSignOut,
-    onAuthStateChanged,
-    GoogleAuthProvider
-} from 'firebase/auth';
-import { auth, googleProvider } from '@/lib/firebase';
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { useGoogleLogin, googleLogout } from '@react-oauth/google';
+import { jwtDecode } from 'jwt-decode';
 import { useToast } from '@/hooks/use-toast';
 import { UserService } from '@/services/api';
+
+interface User {
+    id: string;
+    name: string;
+    email: string;
+    avatar?: string;
+}
 
 interface AuthContextType {
     currentUser: User | null;
     loading: boolean;
-    signInWithGoogle: () => Promise<void>;
-    signOut: () => Promise<void>;
+    signInWithGoogle: () => void;
+    signOut: () => void;
+    token: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,72 +35,101 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
     const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const [token, setToken] = useState<string | null>(localStorage.getItem('google_token'));
     const [loading, setLoading] = useState(true);
     const { toast } = useToast();
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-            setCurrentUser(user);
-            setLoading(false);
-        });
+        const savedToken = localStorage.getItem('google_token');
+        const savedUser = localStorage.getItem('google_user');
 
-        return unsubscribe;
+        if (savedToken && savedUser) {
+            try {
+                setToken(savedToken);
+                setCurrentUser(JSON.parse(savedUser));
+            } catch (e) {
+                console.error('Failed to parse saved user', e);
+            }
+        }
+        setLoading(false);
     }, []);
 
-    const signInWithGoogle = async () => {
-        try {
-            const result = await signInWithPopup(auth, googleProvider);
-            const credential = GoogleAuthProvider.credentialFromResult(result);
+    const signInWithGoogle = useGoogleLogin({
+        scope: 'openid email profile https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/calendar.readonly',
+        onSuccess: async (tokenResponse) => {
+            setLoading(true);
+            try {
+                // In a real app, we might get an ID token or exchange the code for one.
+                // For simplicity with this library's default flow (Implicit), 
+                // we can use the access token to get user info if needed,
+                // or use the code flow for a more "full" setup.
 
+                // Let's assume we want the full experience.
+                // For this demo, we'll fetch user info from Google's endpoint.
+                const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                    headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+                });
+                const userInfo = await res.json();
+
+                const user: User = {
+                    id: userInfo.sub,
+                    name: userInfo.name,
+                    email: userInfo.email,
+                    avatar: userInfo.picture,
+                };
+
+                setCurrentUser(user);
+                setToken(tokenResponse.access_token);
+                localStorage.setItem('google_token', tokenResponse.access_token);
+                localStorage.setItem('google_user', JSON.stringify(user));
+
+                toast({
+                    title: "Welcome!",
+                    description: `Signed in as ${user.name}`,
+                });
+
+                // Sync with backend
+                await UserService.create(user);
+            } catch (error: any) {
+                console.error('Auth sync error:', error);
+                toast({
+                    title: "Sync Failed",
+                    description: "Authenticated with Google but failed to sync profile.",
+                    variant: "destructive",
+                });
+            } finally {
+                setLoading(false);
+            }
+        },
+        onError: (error) => {
+            console.error('Login Failed:', error);
             toast({
-                title: "Welcome!",
-                description: `Signed in as ${result.user.displayName}`,
-            });
-
-
-            // Sync user with backend
-            await UserService.create({
-                id: result.user.uid,
-                name: result.user.displayName || 'Unknown User',
-                email: result.user.email || '',
-                avatar: result.user.photoURL || undefined
-            });
-
-
-        } catch (error: any) {
-            console.error('Authentication error:', error);
-            toast({
-                title: "Authentication Failed",
-                description: error.message || "Failed to sign in with Google",
+                title: "Login Failed",
+                description: "Failed to sign in with Google",
                 variant: "destructive",
             });
-            throw error;
-        }
-    };
+            setLoading(false);
+        },
+    });
 
-    const signOut = async () => {
-        try {
-            await firebaseSignOut(auth);
-            toast({
-                title: "Signed Out",
-                description: "You have been successfully signed out",
-            });
-        } catch (error: any) {
-            console.error('Sign out error:', error);
-            toast({
-                title: "Sign Out Failed",
-                description: error.message || "Failed to sign out",
-                variant: "destructive",
-            });
-            throw error;
-        }
+    const signOut = () => {
+        googleLogout();
+        setCurrentUser(null);
+        setToken(null);
+        localStorage.removeItem('google_token');
+        localStorage.removeItem('google_user');
+        toast({
+            title: "Signed Out",
+            description: "You have been successfully signed out",
+        });
     };
 
     const value = {
         currentUser,
         loading,
-        signInWithGoogle,
+        signInWithGoogle: () => signInWithGoogle(),
         signOut,
+        token
     };
 
     return (

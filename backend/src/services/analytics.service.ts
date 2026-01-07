@@ -1,11 +1,8 @@
-import { collection, doc, getDocs, setDoc, query, where, orderBy, Timestamp, limit } from 'firebase/firestore';
-import { db } from '../config/firebase';
 import { CognitiveLoadState, DailyStats, Activity } from '../types';
 import { WorkThreadService } from './thread.service';
-
-const COGNITIVE_LOAD_COLLECTION = 'cognitiveLoad';
-const DAILY_STATS_COLLECTION = 'dailyStats';
-const ACTIVITIES_COLLECTION = 'activities';
+import { CognitiveLoadStateModel } from '../models/CognitiveLoadState';
+import { ActivityModel } from '../models/Activity';
+import { DailyStatsModel } from '../models/DailyStats';
 
 export class AnalyticsService {
     /**
@@ -21,9 +18,9 @@ export class AnalyticsService {
         // Calculate work duration today
         const todayStart = new Date();
         todayStart.setHours(0, 0, 0, 0);
-        const todayActivities = recentActivities.filter(a => a.timestamp >= todayStart);
+        const todayActivities = recentActivities.filter(a => new Date(a.timestamp) >= todayStart);
         const workDuration = todayActivities.length > 0
-            ? (Date.now() - todayActivities[0].timestamp.getTime()) / (1000 * 60 * 60)
+            ? (Date.now() - new Date(todayActivities[todayActivities.length - 1].timestamp).getTime()) / (1000 * 60 * 60)
             : 0;
 
         // Count pending deadlines in next 7 days
@@ -51,7 +48,7 @@ export class AnalyticsService {
         else level = 'critical';
 
         const cognitiveLoad: CognitiveLoadState = {
-            id: `${userId}_${Date.now()}`,
+            id: '', // Will be assigned by MongoDB
             userId,
             level,
             score,
@@ -59,58 +56,39 @@ export class AnalyticsService {
             timestamp: new Date(),
         };
 
-        await this.saveCognitiveLoad(cognitiveLoad);
-        return cognitiveLoad;
+        const savedLoad = await this.saveCognitiveLoad(cognitiveLoad);
+        return savedLoad;
     }
 
     /**
      * Save cognitive load state
      */
-    static async saveCognitiveLoad(load: CognitiveLoadState): Promise<void> {
-        const loadRef = doc(collection(db, COGNITIVE_LOAD_COLLECTION));
-        await setDoc(loadRef, {
+    static async saveCognitiveLoad(load: CognitiveLoadState): Promise<CognitiveLoadState> {
+        const newLoad = new CognitiveLoadStateModel({
             ...load,
-            timestamp: Timestamp.fromDate(load.timestamp),
+            timestamp: load.timestamp || new Date()
         });
+        await newLoad.save();
+        return newLoad.toJSON() as unknown as CognitiveLoadState;
     }
 
     /**
      * Get latest cognitive load
      */
     static async getLatestCognitiveLoad(userId: string): Promise<CognitiveLoadState | null> {
-        const q = query(
-            collection(db, COGNITIVE_LOAD_COLLECTION),
-            where('userId', '==', userId),
-            orderBy('timestamp', 'desc'),
-            limit(1)
-        );
-
-        const querySnapshot = await getDocs(q);
-        if (querySnapshot.empty) return null;
-
-        const doc = querySnapshot.docs[0];
-        const data = doc.data();
-
-        return {
-            id: doc.id,
-            userId: data.userId,
-            level: data.level,
-            score: data.score,
-            factors: data.factors,
-            timestamp: data.timestamp.toDate(),
-        };
+        const doc = await CognitiveLoadStateModel.findOne({ userId }).sort({ timestamp: -1 });
+        return doc ? (doc.toJSON() as unknown as CognitiveLoadState) : null;
     }
 
     /**
      * Record an activity
      */
     static async recordActivity(activity: Omit<Activity, 'id'>): Promise<void> {
-        const activityRef = doc(collection(db, ACTIVITIES_COLLECTION));
-        await setDoc(activityRef, {
+        const newActivity = new ActivityModel({
             ...activity,
-            id: activityRef.id,
-            timestamp: Timestamp.fromDate(activity.timestamp),
+            timestamp: activity.timestamp || new Date()
         });
+        await newActivity.save();
     }
 
     /**
@@ -119,24 +97,12 @@ export class AnalyticsService {
     static async getRecentActivities(userId: string, hoursAgo: number): Promise<Activity[]> {
         const cutoffTime = new Date(Date.now() - hoursAgo * 60 * 60 * 1000);
 
-        const q = query(
-            collection(db, ACTIVITIES_COLLECTION),
-            where('userId', '==', userId),
-            where('timestamp', '>=', Timestamp.fromDate(cutoffTime)),
-            orderBy('timestamp', 'desc')
-        );
+        const activities = await ActivityModel.find({
+            userId,
+            timestamp: { $gte: cutoffTime }
+        }).sort({ timestamp: -1 });
 
-        const querySnapshot = await getDocs(q);
-        return querySnapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-                id: doc.id,
-                userId: data.userId,
-                type: data.type,
-                timestamp: data.timestamp.toDate(),
-                metadata: data.metadata,
-            };
-        });
+        return activities.map(a => a.toJSON() as unknown as Activity);
     }
 
     /**
@@ -146,41 +112,11 @@ export class AnalyticsService {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        // Find today's stats
-        const q = query(
-            collection(db, DAILY_STATS_COLLECTION),
-            where('userId', '==', userId),
-            where('date', '==', Timestamp.fromDate(today)),
-            limit(1)
+        await DailyStatsModel.findOneAndUpdate(
+            { userId, date: today },
+            { $set: updates },
+            { upsert: true, new: true }
         );
-
-        const querySnapshot = await getDocs(q);
-
-        if (querySnapshot.empty) {
-            // Create new stats
-            const statsRef = doc(collection(db, DAILY_STATS_COLLECTION));
-            await setDoc(statsRef, {
-                id: statsRef.id,
-                userId,
-                date: Timestamp.fromDate(today),
-                focusTime: updates.focusTime || 0,
-                contextSwitches: updates.contextSwitches || 0,
-                completedTasks: updates.completedTasks || 0,
-                activeThreads: updates.activeThreads || 0,
-            });
-        } else {
-            // Update existing stats
-            const statsDoc = querySnapshot.docs[0];
-            const currentData = statsDoc.data();
-
-            await setDoc(statsDoc.ref, {
-                ...currentData,
-                focusTime: updates.focusTime !== undefined ? updates.focusTime : currentData.focusTime,
-                contextSwitches: updates.contextSwitches !== undefined ? updates.contextSwitches : currentData.contextSwitches,
-                completedTasks: updates.completedTasks !== undefined ? updates.completedTasks : currentData.completedTasks,
-                activeThreads: updates.activeThreads !== undefined ? updates.activeThreads : currentData.activeThreads,
-            }, { merge: true });
-        }
     }
 
     /**
@@ -191,36 +127,26 @@ export class AnalyticsService {
         startDate.setDate(startDate.getDate() - daysAgo);
         startDate.setHours(0, 0, 0, 0);
 
-        const q = query(
-            collection(db, DAILY_STATS_COLLECTION),
-            where('userId', '==', userId),
-            where('date', '>=', Timestamp.fromDate(startDate)),
-            orderBy('date', 'asc')
-        );
+        const stats = await DailyStatsModel.find({
+            userId,
+            date: { $gte: startDate }
+        }).sort({ date: 1 });
 
-        const querySnapshot = await getDocs(q);
-        return querySnapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-                id: doc.id,
-                userId: data.userId,
-                date: data.date.toDate(),
-                focusTime: data.focusTime,
-                contextSwitches: data.contextSwitches,
-                completedTasks: data.completedTasks,
-                activeThreads: data.activeThreads,
-            };
-        });
+        return stats.map(s => s.toJSON() as unknown as DailyStats);
     }
 
     /**
      * Increment context switches
      */
     static async incrementContextSwitches(userId: string): Promise<void> {
-        const stats = await this.getTodayStats(userId);
-        await this.updateDailyStats(userId, {
-            contextSwitches: (stats?.contextSwitches || 0) + 1
-        });
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        await DailyStatsModel.findOneAndUpdate(
+            { userId, date: today },
+            { $inc: { contextSwitches: 1 } },
+            { upsert: true }
+        );
 
         // Record activity
         await this.recordActivity({
@@ -238,27 +164,7 @@ export class AnalyticsService {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        const q = query(
-            collection(db, DAILY_STATS_COLLECTION),
-            where('userId', '==', userId),
-            where('date', '==', Timestamp.fromDate(today)),
-            limit(1)
-        );
-
-        const querySnapshot = await getDocs(q);
-        if (querySnapshot.empty) return null;
-
-        const doc = querySnapshot.docs[0];
-        const data = doc.data();
-
-        return {
-            id: doc.id,
-            userId: data.userId,
-            date: data.date.toDate(),
-            focusTime: data.focusTime,
-            contextSwitches: data.contextSwitches,
-            completedTasks: data.completedTasks,
-            activeThreads: data.activeThreads,
-        };
+        const doc = await DailyStatsModel.findOne({ userId, date: today });
+        return doc ? (doc.toJSON() as unknown as DailyStats) : null;
     }
 }

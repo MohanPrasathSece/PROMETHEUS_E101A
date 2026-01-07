@@ -10,6 +10,11 @@ import { authMiddleware } from './middleware/auth.middleware';
 // Load environment variables
 dotenv.config();
 
+import { connectDB } from './config/database';
+
+// Connect to MongoDB
+connectDB();
+
 // Initialize Express app
 const app: Application = express();
 const PORT = process.env.PORT || 5000;
@@ -94,7 +99,7 @@ app.listen(PORT, () => {
 ║   - Items API: http://localhost:${PORT}/api/items       ║
 ║   - Intelligence API: http://localhost:${PORT}/api/intelligence║
 ║                                                        ║
-║   Firebase Project: studio-5912991474-84dbf            ║
+║   MongoDB: Connected ✓                                 ║
 ║   Gemini AI: Enabled ✓                                 ║
 ║                                                        ║
 ╚════════════════════════════════════════════════════════╝

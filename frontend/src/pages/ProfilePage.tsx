@@ -1,4 +1,5 @@
 import { Header } from '@/components/Header';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,10 +8,10 @@ import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { mockUser, mockDailyStats } from '@/lib/mock-data';
 import { motion } from 'framer-motion';
-import { 
-  User, 
-  Mail, 
-  Shield, 
+import {
+  User,
+  Mail,
+  Shield,
   Bell,
   Eye,
   LogOut,
@@ -25,6 +26,9 @@ import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 
 export default function ProfilePage() {
+  const { currentUser } = useAuth();
+  const userData = currentUser || mockUser;
+
   const totalFocusTime = Math.round(
     mockDailyStats.reduce((acc, s) => acc + s.focusTime, 0) / 60
   );
@@ -54,15 +58,15 @@ export default function ProfilePage() {
               <CardContent className="pt-6">
                 <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
                   <Avatar className="w-24 h-24">
-                    <AvatarImage src={mockUser.avatar} alt={mockUser.name} />
-                    <AvatarFallback className="text-2xl">{mockUser.name.charAt(0)}</AvatarFallback>
+                    <AvatarImage src={userData.avatar} alt={userData.name} />
+                    <AvatarFallback className="text-2xl">{userData.name.charAt(0)}</AvatarFallback>
                   </Avatar>
-                  
+
                   <div className="flex-1 text-center sm:text-left">
-                    <h1 className="text-display-sm text-foreground">{mockUser.name}</h1>
+                    <h1 className="text-display-sm text-foreground">{userData.name}</h1>
                     <p className="text-muted-foreground flex items-center justify-center sm:justify-start gap-2 mt-1">
                       <Mail className="w-4 h-4" />
-                      {mockUser.email}
+                      {userData.email}
                     </p>
                     <div className="flex items-center justify-center sm:justify-start gap-2 mt-3">
                       <Badge variant="info">
@@ -141,7 +145,7 @@ export default function ProfilePage() {
                 <CardContent>
                   <div className="space-y-3">
                     {connectedApps.map((app) => (
-                      <div 
+                      <div
                         key={app.name}
                         className="flex items-center justify-between py-2"
                       >

@@ -1,7 +1,7 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "Monocle Work Intelligence Backend - Express API with Firebase and Gemini AI",
+  "description": "Monocle Work Intelligence Backend - Express API with MongoDB and Gemini AI",
   "main": "dist/server.js",
   "scripts": {
     "dev": "nodemon src/server.ts",
@@ -15,11 +15,13 @@
   "type": "commonjs",
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@types/mongoose": "^5.11.96",
+    "axios": "^1.13.2",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
-    "firebase": "^12.7.0",
-    "firebase-admin": "^13.6.0"
+    "google-auth-library": "^10.5.0",
+    "mongoose": "^9.1.2"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

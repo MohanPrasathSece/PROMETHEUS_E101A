@@ -67,8 +67,8 @@ export function Header({ isAuthenticated = false }: HeaderProps) {
   }
 
   // Get user initials for avatar fallback
-  const userInitials = currentUser.displayName
-    ? currentUser.displayName.split(' ').map(n => n[0]).join('').toUpperCase()
+  const userInitials = currentUser.name
+    ? currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase()
     : currentUser.email?.[0].toUpperCase() || '?';
 
   return (
@@ -108,7 +108,7 @@ export function Header({ isAuthenticated = false }: HeaderProps) {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-9 w-9 rounded-full">
                 <Avatar className="h-9 w-9">
-                  <AvatarImage src={currentUser.photoURL || undefined} alt={currentUser.displayName || 'User'} />
+                  <AvatarImage src={currentUser.avatar || undefined} alt={currentUser.name || 'User'} />
                   <AvatarFallback>{userInitials}</AvatarFallback>
                 </Avatar>
               </Button>
@@ -116,7 +116,7 @@ export function Header({ isAuthenticated = false }: HeaderProps) {
             <DropdownMenuContent className="w-56" align="end">
               <DropdownMenuLabel>
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium">{currentUser.displayName || 'User'}</p>
+                  <p className="text-sm font-medium">{currentUser.name || 'User'}</p>
                   <p className="text-xs text-muted-foreground">{currentUser.email}</p>
                 </div>
               </DropdownMenuLabel>

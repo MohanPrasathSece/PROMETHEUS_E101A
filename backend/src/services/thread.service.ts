@@ -1,40 +1,25 @@
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where, orderBy, Timestamp, limit } from 'firebase/firestore';
-import { db } from '../config/firebase';
 import { WorkThread } from '../types';
-
-const THREADS_COLLECTION = 'workThreads';
+import { WorkThreadModel } from '../models/WorkThread';
 
 export class WorkThreadService {
     /**
      * Create a new work thread
      */
     static async createThread(thread: Omit<WorkThread, 'id' | 'createdAt' | 'updatedAt'>): Promise<WorkThread> {
-        const threadRef = doc(collection(db, THREADS_COLLECTION));
         const now = new Date();
-        const newThread: WorkThread = {
+        const newThread = new WorkThreadModel({
             ...thread,
-            id: threadRef.id,
             createdAt: now,
             updatedAt: now,
-        };
+        });
 
         try {
-            await setDoc(threadRef, {
-                ...newThread,
-                lastActivity: Timestamp.fromDate(newThread.lastActivity),
-                deadline: newThread.deadline ? Timestamp.fromDate(newThread.deadline) : null,
-                createdAt: Timestamp.fromDate(now),
-                updatedAt: Timestamp.fromDate(now),
-            });
+            await newThread.save();
+            return newThread.toJSON() as unknown as WorkThread;
         } catch (error: any) {
-            console.error('Error creating thread in Firestore:', error);
-            if (error.code === 7 || error.message?.includes('PERMISSION_DENIED')) {
-                console.error('\x1b[31m%s\x1b[0m', 'CRITICAL: Cloud Firestore API is disabled. Enable it here: https://console.developers.google.com/apis/api/firestore.googleapis.com/overview');
-            }
+            console.error('Error creating thread in MongoDB:', error);
             throw error;
         }
-
-        return newThread;
     }
 
     /**
@@ -42,18 +27,15 @@ export class WorkThreadService {
      */
     static async getThreadById(threadId: string): Promise<WorkThread | null> {
         try {
-            const threadDoc = await getDoc(doc(db, THREADS_COLLECTION, threadId));
+            const threadDoc = await WorkThreadModel.findById(threadId);
 
-            if (!threadDoc.exists()) {
+            if (!threadDoc) {
                 return null;
             }
 
-            return this.mapDocToThread(threadDoc);
+            return threadDoc.toJSON() as unknown as WorkThread;
         } catch (error: any) {
             console.error(`Error getting thread ${threadId}:`, error);
-            if (error.code === 7 || error.message?.includes('PERMISSION_DENIED')) {
-                console.error('\x1b[31m%s\x1b[0m', 'CRITICAL: Cloud Firestore API is disabled. Enable it here: https://console.developers.google.com/apis/api/firestore.googleapis.com/overview');
-            }
             throw error;
         }
     }
@@ -63,19 +45,10 @@ export class WorkThreadService {
      */
     static async getUserThreads(userId: string): Promise<WorkThread[]> {
         try {
-            const q = query(
-                collection(db, THREADS_COLLECTION),
-                where('userId', '==', userId),
-                orderBy('lastActivity', 'desc')
-            );
-
-            const querySnapshot = await getDocs(q);
-            return querySnapshot.docs.map(doc => this.mapDocToThread(doc));
+            const threads = await WorkThreadModel.find({ userId }).sort({ lastActivity: -1 });
+            return threads.map(t => t.toJSON() as unknown as WorkThread);
         } catch (error: any) {
             console.error('Error getting user threads:', error);
-            if (error.code === 7 || error.message?.includes('PERMISSION_DENIED')) {
-                console.error('\x1b[31m%s\x1b[0m', 'CRITICAL: Cloud Firestore API is disabled. Enable it here: https://console.developers.google.com/apis/api/firestore.googleapis.com/overview');
-            }
             throw error;
         }
     }
@@ -85,15 +58,11 @@ export class WorkThreadService {
      */
     static async getActiveThreads(userId: string): Promise<WorkThread[]> {
         try {
-            const q = query(
-                collection(db, THREADS_COLLECTION),
-                where('userId', '==', userId),
-                where('isIgnored', '==', false),
-                orderBy('lastActivity', 'desc')
-            );
-
-            const querySnapshot = await getDocs(q);
-            return querySnapshot.docs.map(doc => this.mapDocToThread(doc));
+            const threads = await WorkThreadModel.find({
+                userId,
+                isIgnored: false
+            }).sort({ lastActivity: -1 });
+            return threads.map(t => t.toJSON() as unknown as WorkThread);
         } catch (error: any) {
             console.error('Error getting active threads:', error);
             throw error;
@@ -105,15 +74,11 @@ export class WorkThreadService {
      */
     static async getHighPriorityThreads(userId: string): Promise<WorkThread[]> {
         try {
-            const q = query(
-                collection(db, THREADS_COLLECTION),
-                where('userId', '==', userId),
-                where('priority', '==', 'high'),
-                orderBy('lastActivity', 'desc')
-            );
-
-            const querySnapshot = await getDocs(q);
-            return querySnapshot.docs.map(doc => this.mapDocToThread(doc));
+            const threads = await WorkThreadModel.find({
+                userId,
+                priority: 'high'
+            }).sort({ lastActivity: -1 });
+            return threads.map(t => t.toJSON() as unknown as WorkThread);
         } catch (error: any) {
             console.error('Error getting high priority threads:', error);
             throw error;
@@ -124,29 +89,19 @@ export class WorkThreadService {
      * Update thread
      */
     static async updateThread(threadId: string, updates: Partial<WorkThread>): Promise<void> {
-        const threadRef = doc(db, THREADS_COLLECTION, threadId);
-        const updateData: any = { ...updates };
-
-        // Convert Date objects to Timestamps
-        if (updates.lastActivity) {
-            updateData.lastActivity = Timestamp.fromDate(updates.lastActivity);
-        }
-        if (updates.deadline) {
-            updateData.deadline = Timestamp.fromDate(updates.deadline);
-        }
-        updateData.updatedAt = Timestamp.fromDate(new Date());
-
-        await updateDoc(threadRef, updateData);
+        await WorkThreadModel.findByIdAndUpdate(threadId, {
+            ...updates,
+            updatedAt: new Date()
+        });
     }
 
     /**
      * Update thread progress
      */
     static async updateProgress(threadId: string, progress: number): Promise<void> {
-        const threadRef = doc(db, THREADS_COLLECTION, threadId);
-        await updateDoc(threadRef, {
+        await WorkThreadModel.findByIdAndUpdate(threadId, {
             progress,
-            updatedAt: Timestamp.fromDate(new Date()),
+            updatedAt: new Date(),
         });
     }
 
@@ -154,10 +109,9 @@ export class WorkThreadService {
      * Ignore/Un-ignore thread
      */
     static async toggleIgnoreThread(threadId: string, isIgnored: boolean): Promise<void> {
-        const threadRef = doc(db, THREADS_COLLECTION, threadId);
-        await updateDoc(threadRef, {
+        await WorkThreadModel.findByIdAndUpdate(threadId, {
             isIgnored,
-            updatedAt: Timestamp.fromDate(new Date()),
+            updatedAt: new Date(),
         });
     }
 
@@ -165,7 +119,7 @@ export class WorkThreadService {
      * Delete thread
      */
     static async deleteThread(threadId: string): Promise<void> {
-        await deleteDoc(doc(db, THREADS_COLLECTION, threadId));
+        await WorkThreadModel.findByIdAndDelete(threadId);
     }
 
     /**
@@ -175,37 +129,11 @@ export class WorkThreadService {
         const futureDate = new Date();
         futureDate.setDate(futureDate.getDate() + daysAhead);
 
-        const q = query(
-            collection(db, THREADS_COLLECTION),
-            where('userId', '==', userId),
-            where('deadline', '<=', Timestamp.fromDate(futureDate)),
-            orderBy('deadline', 'asc')
-        );
+        const threads = await WorkThreadModel.find({
+            userId,
+            deadline: { $lte: futureDate, $gte: new Date() }
+        }).sort({ deadline: 1 });
 
-        const querySnapshot = await getDocs(q);
-        return querySnapshot.docs.map(doc => this.mapDocToThread(doc));
-    }
-
-    /**
-     * Helper to map Firestore document to WorkThread
-     */
-    private static mapDocToThread(doc: any): WorkThread {
-        const data = doc.data();
-        return {
-            id: doc.id,
-            userId: data.userId,
-            title: data.title,
-            description: data.description,
-            itemIds: data.itemIds || [],
-            priority: data.priority,
-            deadline: data.deadline?.toDate(),
-            lastActivity: data.lastActivity.toDate(),
-            progress: data.progress,
-            isIgnored: data.isIgnored || false,
-            relatedPeople: data.relatedPeople || [],
-            tags: data.tags || [],
-            createdAt: data.createdAt.toDate(),
-            updatedAt: data.updatedAt.toDate(),
-        };
+        return threads.map(t => t.toJSON() as unknown as WorkThread);
     }
 }

@@ -1,6 +1,6 @@
 # Monocle Work Intelligence - Backend
 
-A comprehensive Node.js/Express backend for the Monocle Work Intelligence application, powered by Firebase and Gemini AI.
+A comprehensive Node.js/Express backend for the Monocle Work Intelligence application, powered by MongoDB and Gemini AI.
 
 ## Features
 
@@ -16,17 +16,18 @@ A comprehensive Node.js/Express backend for the Monocle Work Intelligence applic
 
 - **Runtime**: Node.js with TypeScript
 - **Framework**: Express.js
-- **Database**: Firebase Firestore
+- **Database**: MongoDB (Mongoose)
 - **AI**: Google Gemini AI
-- **Authentication**: Firebase Auth (ready for integration)
+- **Authentication**: Native Google OAuth 2.0
 
 ## Project Structure
 
 ```
 backend/
 ├── src/
-│   ├── config/          # Firebase and Gemini configuration
+│   ├── config/          # Database and Gemini configuration
 │   ├── types/           # TypeScript interfaces and types
+│   ├── models/          # Mongoose schemas and models
 │   ├── services/        # Business logic layer
 │   │   ├── user.service.ts
 │   │   ├── thread.service.ts
@@ -57,7 +58,9 @@ backend/
    npm install
    ```
 
-2. Environment variables are already configured in `.env`
+2. Configure environment variables in `.env`:
+   - `MONGODB_URI`
+   - `GEMINI_API_KEY`
 
 3. Start development server:
    ```bash
@@ -124,19 +127,19 @@ backend/
 
 - `PORT` - Server port (default: 5000)
 - `NODE_ENV` - Environment (development/production)
-- `FIREBASE_*` - Firebase configuration
+- `MONGODB_URI` - MongoDB connection string
 - `GEMINI_API_KEY` - Google Gemini AI API key
 - `CORS_ORIGIN` - Allowed CORS origin
 
-## Firebase Collections
+## MongoDB Collections
 
 - `users` - User profiles and preferences
-- `workThreads` - Work thread organization
-- `workItems` - Individual work items
-- `workInsights` - AI-generated insights
-- `priorityRecommendations` - Priority suggestions
-- `cognitiveLoad` - Cognitive load measurements
-- `dailyStats` - Daily productivity statistics
+- `workthreads` - Work thread organization
+- `workitems` - Individual work items
+- `workinsights` - AI-generated insights
+- `priorityrecommendations` - Priority suggestions
+- `cognitiveloadstates` - Cognitive load measurements
+- `dailystats` - Daily productivity statistics
 - `activities` - User activity tracking
 
 ## Development
@@ -145,12 +148,9 @@ The backend uses:
 - TypeScript for type safety
 - Nodemon for hot reloading
 - Express for routing
-- Firebase Firestore for data persistence
+- MongoDB (Mongoose) for data persistence
 - Gemini AI for intelligent insights
 
 ## Notes
 
-- All dates are stored as Firestore Timestamps and converted to JS Dates
-- AI features gracefully degrade if Gemini API fails
-- CORS is configured for the frontend at `http://localhost:8080`
 - All responses follow the pattern: `{ success: boolean, data?: any, error?: string }`

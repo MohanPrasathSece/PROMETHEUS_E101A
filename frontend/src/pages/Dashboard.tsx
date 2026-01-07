@@ -37,7 +37,7 @@ export default function Dashboard() {
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState('all');
 
-  const userId = currentUser?.uid;
+  const userId = currentUser?.id;
 
   // Fetch Data
   const { data: threads = [], isLoading: threadsLoading } = useQuery({
@@ -102,7 +102,7 @@ export default function Dashboard() {
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
               <div>
                 <h1 className="text-display-sm text-foreground mb-1">
-                  {greeting()}, {currentUser.displayName?.split(' ')[0] || 'User'}
+                  {greeting()}, {currentUser.name?.split(' ')[0] || 'User'}
                 </h1>
                 <p className="text-muted-foreground">
                   You have <span className="text-foreground font-medium">{highPriorityCount} priority items</span> that need your attention today.

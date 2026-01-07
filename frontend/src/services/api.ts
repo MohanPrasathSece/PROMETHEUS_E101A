@@ -1,6 +1,5 @@
 import axios from 'axios';
 import { User, WorkThread, WorkItem, WorkInsight, PriorityRecommendation, DailyStats, CognitiveLoadState } from '@/lib/types';
-import { auth } from '@/lib/firebase';
 
 const API_URL = 'http://localhost:5000/api';
 
@@ -13,9 +12,8 @@ const api = axios.create({
 
 // Add auth token to requests
 api.interceptors.request.use(async (config) => {
-    const user = auth.currentUser;
-    if (user) {
-        const token = await user.getIdToken();
+    const token = localStorage.getItem('google_token');
+    if (token) {
         config.headers.Authorization = `Bearer ${token}`;
     }
     return config;

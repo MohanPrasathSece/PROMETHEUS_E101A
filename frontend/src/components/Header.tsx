@@ -59,8 +59,8 @@ export function Header({ isAuthenticated = false }: HeaderProps) {
   if (!isAuthenticated || !currentUser) {
     return (
       <header className="fixed top-0 left-0 right-0 z-50 glass border-b">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <Logo size="lg" />
+        <div className="container mx-auto px-4 h-20 flex items-center justify-between">
+          <Logo size="xl" />
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <Button variant="ghost" asChild>
@@ -82,9 +82,9 @@ export function Header({ isAuthenticated = false }: HeaderProps) {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 glass border-b">
-      <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+      <div className="container mx-auto px-4 h-20 flex items-center justify-between">
         <div className="flex items-center gap-8">
-          <Logo size="lg" />
+          <Logo size="xl" />
 
           <nav className="hidden md:flex items-center gap-1">
             {navItems.map((item) => (

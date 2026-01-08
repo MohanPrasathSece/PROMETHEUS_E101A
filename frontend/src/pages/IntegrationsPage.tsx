@@ -1,30 +1,30 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { useGoogleLogin } from '@react-oauth/google';
 import { useAuth } from '@/contexts/AuthContext';
 import { Header } from '@/components/Header';
-import { Calendar, CheckSquare, FileText, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
-import axios from 'axios';
+import { Calendar, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import { IntegrationService } from '@/services/api';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function IntegrationsPage() {
     const { currentUser } = useAuth();
     const [googleSyncing, setGoogleSyncing] = useState(false);
-    const [notionSyncing, setNotionSyncing] = useState(false);
-    const [notionKey, setNotionKey] = useState('');
+    const queryClient = useQueryClient();
 
     const loginToGoogle = useGoogleLogin({
         onSuccess: async (tokenResponse) => {
             setGoogleSyncing(true);
             try {
-                await axios.post(`${API_URL}/integrations/${currentUser?.id}/google/sync`, {
-                    accessToken: tokenResponse.access_token
-                });
-                toast.success('Successfully synced Google Calendar & Tasks!');
+                await IntegrationService.syncGoogle(tokenResponse.access_token);
+                toast.success('Successfully synced Google Calendar, Tasks & Work Emails!');
+                // Invalidate all related queries to refresh the dashboard
+                queryClient.invalidateQueries({ queryKey: ['threads', currentUser?.id] });
+                queryClient.invalidateQueries({ queryKey: ['items', currentUser?.id] });
+                queryClient.invalidateQueries({ queryKey: ['recommendations', currentUser?.id] });
+                queryClient.invalidateQueries({ queryKey: ['insights', currentUser?.id] });
             } catch (error) {
                 console.error('Google Sync Error:', error);
                 toast.error('Failed to sync google data.');
@@ -32,29 +32,9 @@ export default function IntegrationsPage() {
                 setGoogleSyncing(false);
             }
         },
-        scope: 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/tasks.readonly',
+        scope: 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/tasks.readonly https://www.googleapis.com/auth/gmail.readonly',
         onError: () => toast.error('Google Login Failed')
     });
-
-    const handleNotionSync = async () => {
-        if (!notionKey.trim()) {
-            toast.error('Please enter a Notion Integration Token');
-            return;
-        }
-        setNotionSyncing(true);
-        try {
-            await axios.post(`${API_URL}/integrations/${currentUser?.id}/notion/sync`, {
-                apiKey: notionKey
-            });
-            toast.success('Successfully synced Notion pages!');
-            setNotionKey('');
-        } catch (error) {
-            console.error('Notion Sync Error:', error);
-            toast.error('Failed to sync Notion data.');
-        } finally {
-            setNotionSyncing(false);
-        }
-    };
 
     return (
         <div className="min-h-screen bg-background">
@@ -76,12 +56,16 @@ export default function IntegrationsPage() {
                                     </div>
                                     <div>
                                         <CardTitle>Google Workspace</CardTitle>
-                                        <CardDescription>Sync Calendar events and Tasks</CardDescription>
+                                        <CardDescription>Sync Calendar, Tasks, and Work Emails</CardDescription>
                                     </div>
                                 </div>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="bg-secondary/50 p-4 rounded-lg space-y-2 text-sm">
+                                    <div className="flex items-center gap-2">
+                                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                        <span>Import work emails with AI prioritization</span>
+                                    </div>
                                     <div className="flex items-center gap-2">
                                         <CheckCircle2 className="w-4 h-4 text-green-500" />
                                         <span>Import meetings as work items</span>
@@ -104,50 +88,6 @@ export default function IntegrationsPage() {
                                             Syncing...
                                         </>
                                     ) : 'Connect & Sync'}
-                                </Button>
-                            </CardFooter>
-                        </Card>
-
-                        {/* Notion Integration */}
-                        <Card className="border-t-4 border-t-zinc-800 dark:border-t-zinc-400 shadow-sm hover:shadow-md transition-shadow">
-                            <CardHeader>
-                                <div className="flex items-center gap-3 mb-2">
-                                    <div className="p-2 bg-zinc-100 dark:bg-zinc-800 rounded-lg">
-                                        <FileText className="w-6 h-6 text-zinc-700 dark:text-zinc-300" />
-                                    </div>
-                                    <div>
-                                        <CardTitle>Notion</CardTitle>
-                                        <CardDescription>Import pages from your workspace</CardDescription>
-                                    </div>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Integration Token</label>
-                                    <Input
-                                        type="password"
-                                        placeholder="secret_..."
-                                        value={notionKey}
-                                        onChange={(e) => setNotionKey(e.target.value)}
-                                    />
-                                    <p className="text-xs text-muted-foreground">
-                                        Paste your Internal Integration Secret from Notion Developers.
-                                    </p>
-                                </div>
-                            </CardContent>
-                            <CardFooter>
-                                <Button
-                                    className="w-full"
-                                    variant="outline"
-                                    onClick={handleNotionSync}
-                                    disabled={notionSyncing}
-                                >
-                                    {notionSyncing ? (
-                                        <>
-                                            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                                            Syncing...
-                                        </>
-                                    ) : 'Sync Notion Pages'}
                                 </Button>
                             </CardFooter>
                         </Card>

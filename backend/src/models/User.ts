@@ -25,14 +25,21 @@ const UserSchema: Schema = new Schema({
         google: {
             connected: { type: Boolean, default: false },
             lastSync: { type: Date },
-            email: { type: String }
+            email: { type: String },
+            accessToken: { type: String },
+            refreshToken: { type: String }
         },
         notion: {
             connected: { type: Boolean, default: false },
             apiKey: { type: String }, // Storing user provided key for simplicity
             lastSync: { type: Date }
         }
-    }
+    },
+    isVerified: { type: Boolean, default: false },
+    verificationToken: { type: String },
+    verificationTokenExpires: { type: Date },
+    resetPasswordToken: { type: String },
+    resetPasswordExpires: { type: Date }
 });
 
 // Use a standard MongoDB ID for all users.

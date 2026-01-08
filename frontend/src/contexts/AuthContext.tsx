@@ -15,6 +15,7 @@ interface AuthContextType {
     signIn: (credentials: any) => Promise<void>;
     register: (userData: any) => Promise<void>;
     signInWithGoogle: (idToken: string) => Promise<void>;
+    signInWithMicrosoft: (accessToken: string) => Promise<void>;
     signOut: () => void;
     token: string | null;
 }
@@ -88,16 +89,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setLoading(true);
         try {
             const res = await axios.post(`${API_URL}/users/register`, userData);
-            const { user, token: newToken } = res.data.data;
-
-            setCurrentUser(user);
-            setToken(newToken);
-            localStorage.setItem('auth_token', newToken);
-            localStorage.setItem('auth_user', JSON.stringify(user));
+            // We don't log the user in here because they need to verify first.
 
             toast({
                 title: "Account Created!",
-                description: `Welcome, ${user.name}`,
+                description: "Success! Please check your email to verify your account.",
             });
         } catch (error: any) {
             console.error('Registration error:', error);
@@ -112,10 +108,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
     };
 
-    const signInWithGoogle = async (idToken: string) => {
+    const signInWithGoogle = async (authCode: string) => {
         setLoading(true);
         try {
-            const res = await axios.post(`${API_URL}/users/google-login`, { idToken });
+            const res = await axios.post(`${API_URL}/users/google-login`, { code: authCode });
             const { user, token: newToken } = res.data.data;
 
             setCurrentUser(user);
@@ -132,6 +128,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
             toast({
                 title: "Google Login Failed",
                 description: error.response?.data?.error || "Failed to sign in with Google",
+                variant: "destructive",
+            });
+            throw error;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const signInWithMicrosoft = async (accessToken: string) => {
+        setLoading(true);
+        try {
+            const res = await axios.post(`${API_URL}/users/microsoft-login`, { accessToken });
+            const { user, token: newToken } = res.data.data;
+
+            setCurrentUser(user);
+            setToken(newToken);
+            localStorage.setItem('auth_token', newToken);
+            localStorage.setItem('auth_user', JSON.stringify(user));
+
+            toast({
+                title: "Welcome!",
+                description: `Signed in with Microsoft as ${user.name}`,
+            });
+        } catch (error: any) {
+            console.error('Microsoft login error:', error);
+            toast({
+                title: "Microsoft Login Failed",
+                description: error.response?.data?.error || "Failed to sign in with Microsoft",
                 variant: "destructive",
             });
             throw error;
@@ -157,6 +181,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         signIn,
         register,
         signInWithGoogle,
+        signInWithMicrosoft,
         signOut,
         token
     };

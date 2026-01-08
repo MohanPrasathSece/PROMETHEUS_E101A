@@ -27,6 +27,8 @@ export interface WorkItem {
   timestamp: Date;
   preview?: string;
   isRead?: boolean;
+  priority?: 'high' | 'medium' | 'low';
+  status?: 'todo' | 'in-progress' | 'completed';
   threadId?: string;
   teamId?: string;
   assigneeId?: string;
@@ -67,6 +69,16 @@ export interface TeamMember {
   joinedAt: Date;
   email?: string;
   name?: string;
+}
+
+export interface Invitation {
+  id: string;
+  _id?: string;
+  teamId: string;
+  inviterId: string;
+  email: string;
+  status: 'pending' | 'accepted' | 'expired';
+  createdAt: Date;
 }
 
 export interface PriorityRecommendation {

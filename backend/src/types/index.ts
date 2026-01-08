@@ -8,6 +8,25 @@ export interface User {
     createdAt: Date;
     lastLogin?: Date;
     preferences?: UserPreferences;
+    isVerified?: boolean;
+    verificationToken?: string;
+    verificationTokenExpires?: Date;
+    resetPasswordToken?: string;
+    resetPasswordExpires?: Date;
+    integrations?: {
+        google?: {
+            connected: boolean;
+            lastSync?: Date;
+            email?: string;
+            accessToken?: string;
+            refreshToken?: string;
+        };
+        notion?: {
+            connected: boolean;
+            apiKey?: string;
+            lastSync?: Date;
+        };
+    };
 }
 
 export interface UserPreferences {
@@ -27,6 +46,8 @@ export interface WorkItem {
     timestamp: Date;
     preview?: string;
     isRead?: boolean;
+    priority?: 'high' | 'medium' | 'low';
+    status?: 'todo' | 'in-progress' | 'completed';
     threadId?: string;
     teamId?: string;
     assigneeId?: string;

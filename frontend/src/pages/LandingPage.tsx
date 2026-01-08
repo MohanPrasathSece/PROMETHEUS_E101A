@@ -3,11 +3,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { 
-  ArrowRight, 
-  Layers, 
-  Brain, 
-  Sparkles, 
+import {
+  ArrowRight,
+  Layers,
+  Brain,
+  Sparkles,
   Eye,
   Shield,
   Zap,
@@ -64,7 +64,7 @@ export default function LandingPage() {
       <section className="pt-24 pb-20 px-4 relative overflow-hidden">
         {/* Subtle background accent */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-primary/5 rounded-full blur-3xl pointer-events-none" />
-        
+
         <div className="container mx-auto max-w-6xl relative">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Left Content */}
@@ -76,16 +76,16 @@ export default function LandingPage() {
             >
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border bg-card mb-6">
                 <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                <span className="text-sm font-medium text-muted-foreground">Personal Work Intelligence</span>
+                <span className="text-sm font-medium text-muted-foreground">Premium Work Intelligence</span>
               </div>
 
               <h1 className="text-display-lg text-foreground mb-6 leading-tight">
-                Focus on<br />
-                <span className="text-primary">what matters.</span>
+                Master Your<br />
+                <span className="text-primary">Clarity.</span>
               </h1>
 
               <p className="text-xl text-muted-foreground mb-8 max-w-lg">
-                Monocle understands your work, not just your tasks. Get clarity on priorities, 
+                Monocle understands your work, not just your tasks. Get clarity on priorities,
                 stay focused, and avoid burnout — without the manual effort.
               </p>
 
@@ -126,11 +126,11 @@ export default function LandingPage() {
                 <div className="absolute inset-0 -m-8 rounded-full border border-primary/10 animate-pulse" />
                 <div className="absolute inset-0 -m-16 rounded-full border border-primary/5" />
                 <div className="absolute inset-0 -m-24 rounded-full border border-primary/[0.02]" />
-                
+
                 <div className="relative bg-card rounded-3xl p-12 shadow-elevated border">
-                  <img 
-                    src={monocleLogo} 
-                    alt="Monocle - Focus on what matters" 
+                  <img
+                    src={monocleLogo}
+                    alt="Monocle - Focus on what matters"
                     className="w-64 h-auto lg:w-80"
                   />
                 </div>
@@ -170,7 +170,7 @@ export default function LandingPage() {
                   { title: 'Product Roadmap 2024', priority: 'high', progress: 60 },
                   { title: 'API Integration', priority: 'medium', progress: 45 },
                 ].map((thread, i) => (
-                  <div 
+                  <div
                     key={i}
                     className="p-4 rounded-lg border bg-background/50 space-y-3"
                   >
@@ -181,7 +181,7 @@ export default function LandingPage() {
                       <span className="text-sm font-medium">{thread.title}</span>
                     </div>
                     <div className="w-full bg-muted rounded-full h-1.5">
-                      <div 
+                      <div
                         className="bg-primary h-1.5 rounded-full transition-all"
                         style={{ width: `${thread.progress}%` }}
                       />
@@ -208,7 +208,7 @@ export default function LandingPage() {
               Work smarter, not harder
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Monocle observes your work patterns and helps you make better decisions 
+              Monocle observes your work patterns and helps you make better decisions
               about where to focus your energy.
             </p>
           </motion.div>

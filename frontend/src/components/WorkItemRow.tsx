@@ -1,13 +1,14 @@
 import { WorkItem } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { 
-  Mail, 
-  MessageSquare, 
-  FileText, 
-  Calendar, 
-  CheckSquare 
+import {
+  Mail,
+  MessageSquare,
+  FileText,
+  Calendar,
+  CheckSquare
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
 
 interface WorkItemRowProps {
   item: WorkItem;
@@ -33,7 +34,7 @@ export function WorkItemRow({ item, onClick }: WorkItemRowProps) {
   };
 
   return (
-    <div 
+    <div
       className={cn(
         "flex items-start gap-3 p-3 rounded-lg transition-colors cursor-pointer",
         "hover:bg-accent/50",
@@ -44,7 +45,7 @@ export function WorkItemRow({ item, onClick }: WorkItemRowProps) {
       <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-secondary flex items-center justify-center text-muted-foreground">
         {getItemIcon(item.type)}
       </div>
-      
+
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
           <h4 className={cn(
@@ -57,7 +58,19 @@ export function WorkItemRow({ item, onClick }: WorkItemRowProps) {
             {formatDistanceToNow(item.timestamp, { addSuffix: true })}
           </span>
         </div>
-        <p className="text-xs text-muted-foreground mt-0.5">{item.source}</p>
+        <div className="flex items-center gap-2 mt-0.5">
+          <p className="text-xs text-muted-foreground">{item.source}</p>
+          {item.priority && (
+            <Badge variant={item.priority as any} className="h-4 px-1 text-[10px] uppercase">
+              {item.priority}
+            </Badge>
+          )}
+          {item.metadata?.aiReason && (
+            <span className="text-[10px] text-primary/60 italic truncate max-w-[150px]">
+              • {item.metadata.aiReason}
+            </span>
+          )}
+        </div>
         {item.preview && (
           <p className="text-sm text-muted-foreground mt-1 line-clamp-1">
             {item.preview}

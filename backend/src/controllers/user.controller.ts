@@ -31,11 +31,63 @@ export class UserController {
      */
     static async googleLogin(req: Request, res: Response) {
         try {
-            const { idToken } = req.body;
-            const { user, token } = await UserService.googleLogin(idToken);
+            const { code } = req.body;
+            const { user, token } = await UserService.googleLogin(code);
             res.json({ success: true, data: { user, token } });
         } catch (error: any) {
             res.status(401).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * Microsoft Login
+     */
+    static async microsoftLogin(req: Request, res: Response) {
+        try {
+            const { accessToken } = req.body;
+            const { user, token } = await UserService.microsoftLogin(accessToken);
+            res.json({ success: true, data: { user, token } });
+        } catch (error: any) {
+            res.status(401).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * Verify Email
+     */
+    static async verifyEmail(req: Request, res: Response) {
+        try {
+            const { token } = req.body;
+            await UserService.verifyEmail(token);
+            res.json({ success: true, message: 'Email verified successfully' });
+        } catch (error: any) {
+            res.status(400).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * Forgot Password
+     */
+    static async forgotPassword(req: Request, res: Response) {
+        try {
+            const { email } = req.body;
+            await UserService.requestPasswordReset(email);
+            res.json({ success: true, message: 'Password reset link sent to your email' });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * Reset Password
+     */
+    static async resetPassword(req: Request, res: Response) {
+        try {
+            const { token, password } = req.body;
+            await UserService.resetPassword(token, password);
+            res.json({ success: true, message: 'Password reset successfully' });
+        } catch (error: any) {
+            res.status(400).json({ success: false, error: error.message });
         }
     }
 

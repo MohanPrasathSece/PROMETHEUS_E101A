@@ -1,5 +1,7 @@
 import { WorkItem } from '../types';
 import { WorkItemModel } from '../models/WorkItem';
+import { MailService } from './mail.service';
+import { UserService } from './user.service';
 
 export class WorkItemService {
     /**
@@ -13,6 +15,19 @@ export class WorkItemService {
 
         try {
             await newItem.save();
+
+            // Send email if assigned
+            if (newItem.assigneeId) {
+                const assignee = await UserService.getUserById(newItem.assigneeId);
+                if (assignee && assignee.email) {
+                    const link = `${process.env.FRONTEND_URL || 'http://localhost:8080'}/dashboard`;
+                    // Fire and forget email to not block response
+                    MailService.sendTaskAssignment(assignee.email, newItem.title, link).catch(err =>
+                        console.error('Failed to send assignment email:', err)
+                    );
+                }
+            }
+
             return newItem.toJSON() as unknown as WorkItem;
         } catch (error: any) {
             console.error('Error creating work item in MongoDB:', error);
@@ -137,6 +152,7 @@ export class WorkItemService {
             throw error;
         }
     }
+
     static async getTeamItems(teamId: string): Promise<WorkItem[]> {
         try {
             const items = await WorkItemModel.find({ teamId }).sort({ timestamp: -1 });

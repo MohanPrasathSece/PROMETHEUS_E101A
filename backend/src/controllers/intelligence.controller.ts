@@ -142,6 +142,26 @@ export class IntelligenceController {
     }
 
     /**
+     * Record an activity
+     */
+    static async recordActivity(req: Request, res: Response) {
+        try {
+            const userId = (req as any).user?.id || req.body.userId;
+            if (!userId) {
+                return res.status(400).json({ success: false, error: 'User ID is required' });
+            }
+            await AnalyticsService.recordActivity({
+                ...req.body,
+                userId,
+                timestamp: new Date()
+            });
+            res.json({ success: true, message: 'Activity recorded' });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
      * Record focus session
      */
     static async recordFocusSession(req: Request, res: Response) {

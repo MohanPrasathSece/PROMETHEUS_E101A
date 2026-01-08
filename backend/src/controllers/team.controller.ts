@@ -19,11 +19,14 @@ export class TeamController {
     static async getMyTeams(req: Request, res: Response) {
         try {
             const userId = (req as any).user?.id;
+            console.log('Fetching teams for user:', userId);
             if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
             const teams = await TeamService.getMyTeams(userId);
+            console.log(`Found ${teams.length} teams`);
             res.json({ success: true, data: teams });
         } catch (error: any) {
+            console.error('Error in getMyTeams:', error);
             res.status(500).json({ success: false, error: error.message });
         }
     }
@@ -76,6 +79,31 @@ export class TeamController {
             if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
             const team = await TeamService.removeMember(teamId, userId, memberId);
+            res.json({ success: true, data: team });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    static async getInvitations(req: Request, res: Response) {
+        try {
+            const teamId = req.params.id;
+            const invitations = await TeamService.getTeamInvitations(teamId);
+            res.json({ success: true, data: invitations });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    static async updateMemberRole(req: Request, res: Response) {
+        try {
+            const adminId = (req as any).user?.id;
+            const teamId = req.params.id;
+            const memberId = req.params.memberId;
+            const { role } = req.body;
+            if (!adminId) return res.status(401).json({ error: 'Unauthorized' });
+
+            const team = await TeamService.updateMemberRole(teamId, adminId, memberId, role);
             res.json({ success: true, data: team });
         } catch (error: any) {
             res.status(500).json({ success: false, error: error.message });

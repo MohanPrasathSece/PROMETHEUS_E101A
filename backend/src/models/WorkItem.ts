@@ -11,6 +11,8 @@ const WorkItemSchema: Schema = new Schema({
     timestamp: { type: Date, default: Date.now },
     preview: { type: String },
     isRead: { type: Boolean, default: false },
+    priority: { type: String, enum: ['high', 'medium', 'low'] },
+    status: { type: String, enum: ['todo', 'in-progress', 'completed'], default: 'todo' },
     threadId: { type: String, index: true },
     teamId: { type: String, index: true },
     assigneeId: { type: String, index: true },

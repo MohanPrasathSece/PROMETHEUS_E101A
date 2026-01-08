@@ -5,6 +5,7 @@ const API_URL = 'http://localhost:5000/api';
 
 const api = axios.create({
     baseURL: API_URL,
+    timeout: 30000,
     headers: {
         'Content-Type': 'application/json',
     },
@@ -30,6 +31,18 @@ export const UserService = {
     },
     updatePreferences: async (id: string, preferences: any) => {
         const response = await api.put(`/users/${id}/preferences`, preferences);
+        return response.data;
+    },
+    forgotPassword: async (email: string) => {
+        const response = await api.post('/users/forgot-password', { email });
+        return response.data;
+    },
+    resetPassword: async (token: string, password: any) => {
+        const response = await api.post('/users/reset-password', { token, password });
+        return response.data;
+    },
+    verifyEmail: async (token: string) => {
+        const response = await api.post('/users/verify-email', { token });
         return response.data;
     }
 };
@@ -88,6 +101,14 @@ export const WorkItemService = {
     },
     markAsRead: async (id: string) => {
         const response = await api.put(`/items/${id}/read`);
+        return response.data;
+    },
+    deleteItem: async (id: string) => {
+        const response = await api.delete(`/items/${id}`);
+        return response.data;
+    },
+    updateItem: async (id: string, updates: Partial<WorkItem>) => {
+        const response = await api.put(`/items/${id}`, updates);
         return response.data;
     }
 };
@@ -157,6 +178,25 @@ export const TeamService = {
     removeMember: async (teamId: string, memberId: string) => {
         const response = await api.delete(`/teams/${teamId}/members/${memberId}`);
         return response.data.data as Team;
+    },
+    getInvitations: async (teamId: string) => {
+        const response = await api.get(`/teams/${teamId}/invitations`);
+        return response.data.data;
+    },
+    updateMemberRole: async (teamId: string, memberId: string, role: 'admin' | 'member') => {
+        const response = await api.patch(`/teams/${teamId}/members/${memberId}/role`, { role });
+        return response.data.data as Team;
+    }
+};
+
+export const IntegrationService = {
+    syncGoogle: async (accessToken: string) => {
+        const response = await api.post('/integrations/google/sync', { accessToken });
+        return response.data;
+    },
+    syncNotion: async (apiKey: string) => {
+        const response = await api.post('/integrations/notion/sync', { apiKey });
+        return response.data;
     }
 };
 

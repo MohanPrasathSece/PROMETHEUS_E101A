@@ -2,45 +2,30 @@ import { Request, Response } from 'express';
 import { IntegrationService } from '../services/integration.service';
 
 export class IntegrationController {
-
-    /**
-     * Sync Google Calendar & Tasks
-     */
     static async syncGoogle(req: Request, res: Response) {
         try {
+            const userId = (req as any).user?.id;
+            if (!userId) {
+                res.status(401).json({ error: 'Unauthorized' });
+                return;
+            }
+
             const { accessToken } = req.body;
-            // Assuming authMiddleware adds userId to req.user or similar, 
-            // but the legacy middleware might just put it on req.body or verify generic token.
-            // Let's assume we pull userId from the authenticated user token.
-            // Wait, looking at other controllers (e.g., IntelligenceController), 
-            // the pattern is to pass userId in params OR assume it's attached.
-            // UserRoutes uses authMiddleware.
-            // Let's check how we get userId usually.
-            // Looking at user.controller.ts, it uses req.params.id for updates.
-            // But for a sync action initiated by the logged in user...
+            const gmailCount = await IntegrationService.syncGmail(userId, accessToken);
+            const calendarCount = await IntegrationService.syncCalendar(userId, accessToken);
+            const tasksCount = await IntegrationService.syncTasks(userId, accessToken);
 
-            // I will assume the route will include :userId or I will grab it from req.body if the frontend sends it.
-            // Better pattern: Frontend sends userId in URL: /api/integrations/:userId/google/sync
-
-            const userId = req.params.userId;
-            const result = await IntegrationService.syncGoogle(userId, accessToken);
-            res.json({ success: true, data: result });
+            res.status(200).json({
+                message: 'Google sync completed',
+                data: {
+                    emailsSynced: gmailCount,
+                    meetingsSynced: calendarCount,
+                    tasksSynced: tasksCount
+                }
+            });
         } catch (error: any) {
-            res.status(500).json({ success: false, error: error.message });
-        }
-    }
-
-    /**
-     * Sync Notion
-     */
-    static async syncNotion(req: Request, res: Response) {
-        try {
-            const userId = req.params.userId;
-            const { apiKey } = req.body;
-            const result = await IntegrationService.syncNotion(userId, apiKey);
-            res.json({ success: true, data: result });
-        } catch (error: any) {
-            res.status(500).json({ success: false, error: error.message });
+            console.error('Integration error:', error.message);
+            res.status(500).json({ error: error.message });
         }
     }
 }

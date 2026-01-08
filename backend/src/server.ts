@@ -1,6 +1,10 @@
 import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import * as dotenv from 'dotenv';
+
+// Load environment variables immediately
+dotenv.config();
+
 import userRoutes from './routes/user.routes';
 import threadRoutes from './routes/thread.routes';
 import workitemRoutes from './routes/workitem.routes';
@@ -8,9 +12,6 @@ import intelligenceRoutes from './routes/intelligence.routes';
 import integrationRoutes from './routes/integration.routes';
 import teamRoutes from './routes/team.routes';
 import { authMiddleware } from './middleware/auth.middleware';
-
-// Load environment variables
-dotenv.config();
 
 import { connectDB } from './config/database';
 

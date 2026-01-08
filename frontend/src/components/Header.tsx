@@ -62,7 +62,7 @@ export function Header({ isAuthenticated = false }: HeaderProps) {
     return (
       <header className="fixed top-0 left-0 right-0 z-50 glass border-b">
         <div className="container mx-auto px-4 h-20 flex items-center justify-between">
-          <Logo size="xl" />
+          <Logo size="md" />
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <Button variant="ghost" asChild>
@@ -84,30 +84,30 @@ export function Header({ isAuthenticated = false }: HeaderProps) {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 glass border-b">
-      <div className="container mx-auto px-4 h-20 flex items-center justify-between">
-        <div className="flex items-center gap-8">
-          <Logo size="xl" />
-
-          <nav className="hidden md:flex items-center gap-1">
-            {navItems.map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={cn(
-                  "flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                  location.pathname === item.path
-                    ? "bg-accent text-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                )}
-              >
-                <item.icon className="w-4 h-4" />
-                {item.label}
-              </Link>
-            ))}
-          </nav>
+      <div className="container mx-auto px-4 h-20 flex items-center">
+        <div className="flex-1 flex items-center">
+          <Logo size="md" />
         </div>
 
-        <div className="flex items-center gap-4">
+        <nav className="hidden md:flex items-center justify-center gap-1">
+          {navItems.map((item) => (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={cn(
+                "flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                location.pathname === item.path
+                  ? "bg-accent text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+              )}
+            >
+              <item.icon className="w-4 h-4" />
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="flex-1 flex items-center justify-end gap-4">
           {/* Cognitive Load Indicator */}
           <div className="hidden lg:block">
             <CognitiveLoadMeter

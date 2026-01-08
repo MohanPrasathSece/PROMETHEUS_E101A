@@ -1,205 +1,316 @@
-import axios from 'axios';
+import { google } from 'googleapis';
+import { OAuth2Client } from 'google-auth-library';
+import { UserModel } from '../models/User';
+import { WorkItemService } from './workitem.service';
 import { WorkItemModel } from '../models/WorkItem';
 import { WorkThreadModel } from '../models/WorkThread';
-import { UserModel } from '../models/User';
+import { model } from '../config/gemini';
 
 export class IntegrationService {
+    private static async getOrCreateExternalThread(userId: string): Promise<string> {
+        let thread = await WorkThreadModel.findOne({ userId, title: 'External Imports' });
+        if (!thread) {
+            thread = new WorkThreadModel({
+                userId,
+                title: 'External Imports',
+                description: 'Automatically imported items from Google Workspace and other integrations.',
+                priority: 'medium',
+                progress: 0,
+                lastActivity: new Date(),
+                itemIds: []
+            });
+            await thread.save();
+        }
+        return (thread._id as any).toString();
+    }
+
+    private static createOAuthClient(accessToken: string, refreshToken?: string): OAuth2Client {
+        const client = new google.auth.OAuth2(
+            process.env.GOOGLE_CLIENT_ID,
+            process.env.GOOGLE_CLIENT_SECRET
+        );
+        client.setCredentials({
+            access_token: accessToken,
+            refresh_token: refreshToken
+        });
+        return client;
+    }
 
     /**
-     * Sync data from Google Calendar and Tasks
+     * Internal method to classify if an email is work-related and assign priority
      */
-    static async syncGoogle(userId: string, accessToken: string) {
+    private static async classifyAndPrioritizeEmail(subject: string, from: string, snippet: string): Promise<{ isWork: boolean, priority: 'high' | 'medium' | 'low', reason?: string } | null> {
         try {
-            // 1. Fetch Calendar Events (Next 7 days)
-            const now = new Date();
-            const nextWeek = new Date(now);
-            nextWeek.setDate(now.getDate() + 7);
+            const prompt = `Analyze this email and determine if it is "Work-related" or "Personal/Newsletter".
+If it is Work-related, assign a priority: "high", "medium", or "low".
+Work-related means: projects, client communication, team updates, meeting invites, urgent requests, technical issues.
+Non-work means: social media notifications, generic newsletters, advertisements, personal chat, receipts (unless business), spam.
 
-            const calendarRes = await axios.get('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
-                headers: { Authorization: `Bearer ${accessToken}` },
-                params: {
-                    timeMin: now.toISOString(),
-                    timeMax: nextWeek.toISOString(),
-                    singleEvents: true,
-                    orderBy: 'startTime'
-                }
-            });
+Email Subject: ${subject}
+From: ${from}
+Snippet: ${snippet}
 
-            // 2. Fetch Tasks (Default List)
-            const tasksRes = await axios.get('https://www.googleapis.com/tasks/v1/lists/@default/tasks', {
-                headers: { Authorization: `Bearer ${accessToken}` },
-                params: {
-                    showCompleted: false,
-                    showHidden: false
-                }
-            });
+Respond ONLY in JSON format:
+{
+  "isWork": boolean,
+  "priority": "high" | "medium" | "low",
+  "reason": "brief reason why"
+}`;
 
-            // 3. Find or Create "External Imports" Thread
-            let importThread = await WorkThreadModel.findOne({ userId, title: 'External Imports' });
-            if (!importThread) {
-                importThread = new WorkThreadModel({
-                    userId,
-                    title: 'External Imports',
-                    description: 'Items imported from Google Calendar, Tasks, and Notion',
-                    priority: 'medium',
-                    progress: 0,
-                    deadline: nextWeek,
-                    tags: ['Imported', 'External']
-                });
-                await importThread.save();
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            const text = response.text();
+
+            const jsonMatch = text.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                return JSON.parse(jsonMatch[0]);
             }
-
-            let newItemsCount = 0;
-
-            // 4. Process Events
-            const events = calendarRes.data.items || [];
-            for (const event of events) {
-                const existing = await WorkItemModel.findOne({
-                    userId,
-                    'metadata.externalId': event.id
-                });
-
-                if (!existing && event.summary) {
-                    await WorkItemModel.create({
-                        userId,
-                        threadId: importThread.id,
-                        type: 'calendar',
-                        title: event.summary,
-                        preview: event.description || 'Imported from Google Calendar',
-                        source: 'Google Calendar',
-                        timestamp: event.start.dateTime || event.start.date,
-                        metadata: {
-                            externalId: event.id,
-                            link: event.htmlLink,
-                            startTime: event.start.dateTime || event.start.date,
-                            endTime: event.end.dateTime || event.end.date,
-                            status: event.status
-                        }
-                    });
-                    newItemsCount++;
-                }
-            }
-
-            // 5. Process Tasks
-            const tasks = tasksRes.data.items || [];
-            for (const task of tasks) {
-                const existing = await WorkItemModel.findOne({
-                    userId,
-                    'metadata.externalId': task.id
-                });
-
-                if (!existing && task.title) {
-                    await WorkItemModel.create({
-                        userId,
-                        threadId: importThread.id,
-                        type: 'task',
-                        title: task.title,
-                        preview: task.notes || 'Imported from Google Tasks',
-                        source: 'Google Tasks',
-                        timestamp: task.updated ? new Date(task.updated) : new Date(),
-                        metadata: {
-                            externalId: task.id,
-                            dueDate: task.due,
-                            status: task.status
-                        }
-                    });
-                    newItemsCount++;
-                }
-            }
-
-            // 6. Update User Status
-            await UserModel.findByIdAndUpdate(userId, {
-                'integrations.google.connected': true,
-                'integrations.google.lastSync': new Date()
-            });
-
-            return { success: true, count: newItemsCount };
-
-        } catch (error: any) {
-            console.error('Google Sync Error:', error.response?.data || error.message);
-            throw new Error(error.response?.data?.error?.message || 'Failed to sync with Google');
+            return { isWork: true, priority: 'medium' }; // Fallback
+        } catch (error) {
+            console.error('Email classification error:', error);
+            return { isWork: true, priority: 'medium' }; // Fallback
         }
     }
 
     /**
-     * Sync data from Notion
+     * Sync Gmail messages for a user
      */
-    static async syncNotion(userId: string, apiKey: string) {
-        try {
-            // Find or Create "External Imports" Thread (Reuse)
-            let importThread = await WorkThreadModel.findOne({ userId, title: 'External Imports' });
-            if (!importThread) {
-                importThread = await WorkThreadModel.create({
-                    userId,
-                    title: 'External Imports',
-                    description: 'Items imported from Google Calendar, Tasks, and Notion',
-                    priority: 'medium',
-                    tags: ['Imported', 'External']
-                });
-            }
+    static async syncGmail(userId: string, overrideAccessToken?: string): Promise<number> {
+        const user = await UserModel.findById(userId);
+        if (!user) return 0;
 
-            // 1. Search Notion for Database Pages
-            const response = await axios.post('https://api.notion.com/v1/search', {
-                filter: {
-                    value: 'page',
-                    property: 'object'
-                },
-                sort: {
-                    direction: 'descending',
-                    timestamp: 'last_edited_time'
-                }
-            }, {
-                headers: {
-                    'Authorization': `Bearer ${apiKey}`,
-                    'Notion-Version': '2022-06-28',
-                    'Content-Type': 'application/json'
-                }
+        const integrations = (user as any).integrations;
+        const accessToken = overrideAccessToken || integrations?.google?.accessToken;
+        const refreshToken = integrations?.google?.refreshToken;
+
+        if (!accessToken) {
+            console.error('No Google access token found for user:', userId);
+            return 0;
+        }
+
+        const auth = this.createOAuthClient(accessToken, refreshToken);
+        const gmail = google.gmail({ version: 'v1', auth });
+
+        try {
+            // Fetch recent messages
+            const res = await gmail.users.messages.list({
+                userId: 'me',
+                maxResults: 15, // Check slightly more to account for filtering
+                q: 'is:unread'
             });
 
-            const pages = response.data.results || [];
-            let newItemsCount = 0;
+            const messages = res.data.messages || [];
+            let count = 0;
 
-            for (const page of pages) {
-                // Determine Title (Notion properties are complex)
-                const titleProp = Object.values(page.properties).find((p: any) => p.type === 'title') as any;
-                const title = titleProp?.title?.[0]?.plain_text;
+            for (const msg of messages) {
+                const details = await gmail.users.messages.get({
+                    userId: 'me',
+                    id: msg.id!
+                });
 
-                if (title) {
-                    const existing = await WorkItemModel.findOne({
+                const headers = details.data.payload?.headers;
+                const subject = headers?.find((h: any) => h.name === 'Subject')?.value || 'No Subject';
+                const from = headers?.find((h: any) => h.name === 'From')?.value || 'Unknown';
+                const date = new Date(parseInt(details.data.internalDate!));
+                const snippet = details.data.snippet || '';
+
+                // Check if already exists
+                const existing = await WorkItemModel.findOne({ userId, 'metadata.googleId': msg.id });
+                if (existing) {
+                    continue;
+                }
+
+                // AI CLASSIFICATION
+                const analysis = await this.classifyAndPrioritizeEmail(subject, from, snippet);
+
+                // Skip if not work-related
+                if (!analysis || !analysis.isWork) {
+                    console.log(`Skipping non-work email: ${subject}`);
+                    continue;
+                }
+
+                const externalThreadId = await this.getOrCreateExternalThread(userId);
+
+                const newItem = await WorkItemService.createItem({
+                    userId,
+                    type: 'email',
+                    title: subject,
+                    source: `Gmail: ${from}`,
+                    timestamp: date,
+                    preview: snippet,
+                    isRead: false,
+                    priority: analysis.priority,
+                    threadId: externalThreadId,
+                    metadata: {
+                        googleId: msg.id,
+                        threadId: details.data.threadId,
+                        aiReason: analysis.reason
+                    }
+                });
+
+                // Update thread last activity and item list
+                await WorkThreadModel.findByIdAndUpdate(externalThreadId, {
+                    $addToSet: { itemIds: (newItem as any).id || (newItem as any)._id },
+                    lastActivity: new Date(),
+                    // Update thread priority if this email is high priority
+                    ...(analysis.priority === 'high' ? { priority: 'high' } : {})
+                });
+
+                count++;
+            }
+
+            if (integrations?.google) {
+                integrations.google.lastSync = new Date();
+                await user.save();
+            }
+
+            return count;
+        } catch (error: any) {
+            console.error('Gmail sync error:', error.message);
+            return 0;
+        }
+    }
+
+    /**
+     * Sync Calendar events for a user
+     */
+    static async syncCalendar(userId: string, overrideAccessToken?: string): Promise<number> {
+        const user = await UserModel.findById(userId);
+        if (!user) return 0;
+
+        const integrations = (user as any).integrations;
+        const accessToken = overrideAccessToken || integrations?.google?.accessToken;
+        const refreshToken = integrations?.google?.refreshToken;
+
+        if (!accessToken) return 0;
+
+        const auth = this.createOAuthClient(accessToken, refreshToken);
+        const calendar = google.calendar({ version: 'v3', auth });
+
+        try {
+            const res = await calendar.events.list({
+                calendarId: 'primary',
+                timeMin: new Date().toISOString(),
+                maxResults: 10,
+                singleEvents: true,
+                orderBy: 'startTime'
+            });
+
+            const events = res.data.items || [];
+            let count = 0;
+
+            for (const event of events) {
+                // Check if already exists
+                const existing = await WorkItemModel.findOne({ userId, 'metadata.googleId': event.id });
+                if (existing) {
+                    continue;
+                }
+
+                const externalThreadId = await this.getOrCreateExternalThread(userId);
+
+                const newItem = await WorkItemService.createItem({
+                    userId,
+                    type: 'calendar',
+                    title: event.summary || 'Meeting',
+                    source: 'Google Calendar',
+                    timestamp: new Date(event.start?.dateTime || event.start?.date || ''),
+                    preview: event.description || '',
+                    isRead: false,
+                    priority: 'medium', // Default for calendar events
+                    threadId: externalThreadId,
+                    metadata: {
+                        googleId: event.id,
+                        status: event.status,
+                        location: event.location
+                    }
+                });
+
+                // Update thread last activity and item list
+                await WorkThreadModel.findByIdAndUpdate(externalThreadId, {
+                    $addToSet: { itemIds: (newItem as any).id || (newItem as any)._id },
+                    lastActivity: new Date()
+                });
+
+                count++;
+            }
+
+            return count;
+        } catch (error: any) {
+            console.error('Calendar sync error:', error.message);
+            return 0;
+        }
+    }
+
+    /**
+     * Sync Google Tasks for a user
+     */
+    static async syncTasks(userId: string, overrideAccessToken?: string): Promise<number> {
+        const user = await UserModel.findById(userId);
+        if (!user) return 0;
+
+        const integrations = (user as any).integrations;
+        const accessToken = overrideAccessToken || integrations?.google?.accessToken;
+        const refreshToken = integrations?.google?.refreshToken;
+
+        if (!accessToken) return 0;
+
+        const auth = this.createOAuthClient(accessToken, refreshToken);
+        const tasks = google.tasks({ version: 'v1', auth });
+
+        try {
+            // Get all task lists
+            const taskListsRes = await tasks.tasklists.list();
+            const taskLists = taskListsRes.data.items || [];
+            let count = 0;
+
+            for (const list of taskLists) {
+                const tasksRes = await tasks.tasks.list({
+                    tasklist: list.id!,
+                    showCompleted: false,
+                    maxResults: 20
+                });
+
+                const taskItems = tasksRes.data.items || [];
+                for (const task of taskItems) {
+                    // Check if already exists
+                    const existing = await WorkItemModel.findOne({ userId, 'metadata.googleId': task.id });
+                    if (existing) {
+                        continue;
+                    }
+
+                    const externalThreadId = await this.getOrCreateExternalThread(userId);
+
+                    const newItem = await WorkItemService.createItem({
                         userId,
-                        'metadata.externalId': page.id
+                        type: 'task',
+                        title: task.title || 'Untitled Task',
+                        source: `Google Tasks: ${list.title}`,
+                        timestamp: task.due ? new Date(task.due) : new Date(),
+                        preview: task.notes || '',
+                        isRead: false,
+                        priority: 'medium',
+                        threadId: externalThreadId,
+                        metadata: {
+                            googleId: task.id,
+                            listId: list.id,
+                            status: task.status
+                        }
                     });
 
-                    if (!existing) {
-                        await WorkItemModel.create({
-                            userId,
-                            threadId: importThread.id,
-                            type: 'document',
-                            title: title,
-                            preview: `Imported from Notion (${page.object})`,
-                            source: 'Notion',
-                            metadata: {
-                                externalId: page.id,
-                                link: page.url
-                            }
-                        });
-                        newItemsCount++;
-                    }
+                    // Update thread last activity and item list
+                    await WorkThreadModel.findByIdAndUpdate(externalThreadId, {
+                        $addToSet: { itemIds: (newItem as any).id || (newItem as any)._id },
+                        lastActivity: new Date()
+                    });
+
+                    count++;
                 }
             }
 
-            // Update User
-            await UserModel.findByIdAndUpdate(userId, {
-                'integrations.notion.connected': true,
-                'integrations.notion.apiKey': apiKey,
-                'integrations.notion.lastSync': new Date()
-            });
-
-            return { success: true, count: newItemsCount };
-
+            return count;
         } catch (error: any) {
-            console.error('Notion Sync Error:', error.response?.data || error.message);
-            throw new Error('Failed to sync with Notion. Check your API Key.');
+            console.error('Tasks sync error:', error.message);
+            return 0;
         }
     }
 }

@@ -9,18 +9,27 @@ export class ChatService {
      */
     static async processChat(userId: string, message: string, history: { role: 'user' | 'model', content: string }[] = []) {
         try {
+            console.log(`Processing chat for user: ${userId}`);
+
             // Fetch user context for the AI
-            const threads = await WorkThreadService.getUserThreads(userId);
-            const insights = await InsightService.getActiveInsights(userId);
+            let threads: any[] = [];
+            let insights: any[] = [];
+
+            try {
+                threads = await WorkThreadService.getUserThreads(userId);
+                insights = await InsightService.getActiveInsights(userId);
+            } catch (ctxError) {
+                console.warn('Failed to fetch user context for chat, proceeding with empty context:', ctxError);
+            }
 
             const context = {
-                threads: threads.map(t => ({
+                threads: threads.slice(0, 5).map(t => ({
                     title: t.title,
                     priority: t.priority,
                     progress: t.progress,
                     deadline: t.deadline
                 })),
-                insights: insights.map(i => ({
+                insights: insights.slice(0, 5).map(i => ({
                     title: i.title,
                     description: i.description,
                     severity: i.severity
@@ -48,6 +57,7 @@ export class ChatService {
                 parts: [{ text: h.content }]
             }));
 
+            console.log('Sending message to AI model...');
             const chat = model.startChat({
                 history: [
                     {
@@ -64,10 +74,12 @@ export class ChatService {
 
             const result = await chat.sendMessage(message);
             const response = await result.response;
-            return response.text();
-        } catch (error) {
+            const text = response.text();
+            console.log('AI response received successfully');
+            return text;
+        } catch (error: any) {
             console.error('Error in ChatService:', error);
-            throw new Error('Failed to process chat message');
+            throw new Error(`Failed to process chat message: ${error.message}`);
         }
     }
 }

@@ -3,7 +3,8 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://mohan:0110@cluster0.420pvti.mongodb.net/?appName=Cluster0';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/monocle';
+console.log('Connecting to MongoDB...');
 
 export const connectDB = async () => {
     try {

@@ -13,7 +13,8 @@ import {
   Calendar,
   CheckSquare,
   ChevronRight,
-  Loader2
+  Loader2,
+  CheckCircle2
 } from 'lucide-react';
 
 import { Header } from '@/components/Header';
@@ -22,6 +23,7 @@ import { PriorityRecommendationCard } from '@/components/PriorityRecommendationC
 import { InsightCard } from '@/components/InsightCard';
 import { CognitiveLoadMeter } from '@/components/CognitiveLoadMeter';
 import { WorkItemRow } from '@/components/WorkItemRow';
+import { WorkTaskCard } from '@/components/WorkTaskCard';
 import { CreateThreadDialog } from '@/components/CreateThreadDialog';
 import { FocusTimer } from '@/components/FocusTimer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,8 +33,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { ThreadService, IntelligenceService, WorkItemService } from '@/services/api';
-import { WorkThread, WorkItem, WorkInsight, PriorityRecommendation, CognitiveLoadState } from '@/lib/types';
-import { mockCognitiveLoad } from '@/lib/mock-data'; // Fallback for now
+import { WorkThread, WorkItem, WorkInsight, PriorityRecommendation } from '@/lib/types';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -40,6 +41,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('all');
 
   const userId = currentUser?.id;
+  const queryClient = useQueryClient();
 
   // Fetch Data
   const { data: threads = [], isLoading: threadsLoading } = useQuery({
@@ -72,8 +74,6 @@ export default function Dashboard() {
     enabled: !!userId
   });
 
-  const queryClient = useQueryClient();
-
   const dismissInsightMutation = useMutation({
     mutationFn: (id: string) => IntelligenceService.dismissInsight(id),
     onSuccess: () => {
@@ -86,6 +86,15 @@ export default function Dashboard() {
     mutationFn: (id: string) => WorkItemService.markAsRead(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['items', userId] });
+    }
+  });
+
+  const updateTaskStatusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string, status: string }) =>
+      WorkItemService.updateItem(id, { status: status as any }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['items', userId] });
+      queryClient.invalidateQueries({ queryKey: ['threads', userId] });
     }
   });
 
@@ -103,6 +112,19 @@ export default function Dashboard() {
     if (type === 'all') return items;
     return items.filter((item: WorkItem) => item.type === type);
   };
+
+  const filterMajorWorkTasks = () => {
+    return items.filter((item: WorkItem) =>
+      (item.type === 'task' && item.status !== 'completed') ||
+      (item.priority === 'high' && item.status !== 'completed')
+    ).sort((a, b) => {
+      if (a.priority === 'high' && b.priority !== 'high') return -1;
+      if (a.priority !== 'high' && b.priority === 'high') return 1;
+      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+    });
+  };
+
+  const majorTasks = filterMajorWorkTasks();
 
   if (!currentUser) return null;
 
@@ -139,7 +161,7 @@ export default function Dashboard() {
 
           <div className="grid gap-6 lg:grid-cols-3">
             {/* Main content */}
-            <div className="lg:col-span-2 space-y-6">
+            <div className="lg:col-span-2 space-y-8">
               {/* Priority Recommendations */}
               <section>
                 <div className="flex items-center justify-between mb-4">
@@ -164,7 +186,7 @@ export default function Dashboard() {
                       .map((rec, index: number) => (
                         <PriorityRecommendationCard
                           key={rec.id}
-                          recommendation={rec as PriorityRecommendation & { thread: WorkThread }}
+                          recommendation={rec as any}
                           rank={index}
                           onSelect={() => navigate(`/thread/${rec.threadId}`)}
                         />
@@ -173,6 +195,44 @@ export default function Dashboard() {
                 ) : (
                   <Card className="p-8 text-center text-muted-foreground">
                     No active recommendations. Good job!
+                  </Card>
+                )}
+              </section>
+
+              {/* Major Work Tasks */}
+              <section className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckSquare className="w-5 h-5 text-primary" />
+                    <h2 className="text-xl font-bold font-display">Major Work Tasks</h2>
+                  </div>
+                  <Badge variant="outline" className="bg-primary/5">{majorTasks.length} active</Badge>
+                </div>
+
+                {itemsLoading ? (
+                  <div className="flex justify-center p-8"><Loader2 className="animate-spin text-muted-foreground" /></div>
+                ) : majorTasks.length > 0 ? (
+                  <div className="grid gap-4">
+                    {majorTasks.slice(0, 3).map((task) => (
+                      <WorkTaskCard
+                        key={task.id}
+                        task={task}
+                        onStatusChange={(id, status) => updateTaskStatusMutation.mutate({ id, status })}
+                        onClick={() => {
+                          if (task.threadId) navigate(`/thread/${task.threadId}`);
+                        }}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <Card className="p-12 border-dashed border-2 bg-muted/20 flex flex-col items-center justify-center text-center">
+                    <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center mb-4">
+                      <CheckCircle2 className="w-6 h-6 text-muted-foreground" />
+                    </div>
+                    <h3 className="font-semibold mb-1">All caught up!</h3>
+                    <p className="text-sm text-muted-foreground max-w-[250px]">
+                      No major work tasks requiring immediate attention. Enjoy your focus time!
+                    </p>
                   </Card>
                 )}
               </section>
@@ -250,7 +310,7 @@ export default function Dashboard() {
                           <div className="flex justify-center p-8"><Loader2 className="animate-spin text-muted-foreground" /></div>
                         ) : (
                           <div className="space-y-1">
-                            {filterWorkItems(activeTab).slice(0, 5).map((item: WorkItem) => (
+                            {filterWorkItems(activeTab).slice(0, 10).map((item: WorkItem) => (
                               <WorkItemRow
                                 key={item.id}
                                 item={item}
@@ -274,13 +334,12 @@ export default function Dashboard() {
 
             {/* Sidebar */}
             <div className="space-y-6">
-              {/* Focus Timer - Winning Feature */}
+              {/* Focus Timer */}
               <FocusTimer />
 
               {/* Cognitive Load */}
               <Card>
                 <CardContent className="pt-6">
-                  {/* Using mock fallback or retrieved data */}
                   <CognitiveLoadMeter load={cognitiveLoad || {
                     level: 'low',
                     score: 25,
@@ -303,7 +362,7 @@ export default function Dashboard() {
                     <div className="flex justify-center p-4"><Loader2 className="animate-spin text-muted-foreground" /></div>
                   ) : insights.length > 0 ? (
                     <AnimatePresence>
-                      {insights.map((insight: WorkInsight) => (
+                      {insights.map((insight: any) => (
                         <InsightCard
                           key={insight.id}
                           insight={insight}

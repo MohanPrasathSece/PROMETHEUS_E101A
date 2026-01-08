@@ -1,27 +1,24 @@
 import { Router } from 'express';
 import { IntelligenceController } from '../controllers/intelligence.controller';
+import { authMiddleware } from '../middleware/auth.middleware';
 
 const router = Router();
 
-// Insights routes
+// Authenticate all intelligence routes
+router.use(authMiddleware as any);
+
+router.post('/chat/:userId', IntelligenceController.chat);
 router.post('/insights/:userId/generate', IntelligenceController.generateInsights);
 router.get('/insights/:userId', IntelligenceController.getActiveInsights);
 router.put('/insights/:id/dismiss', IntelligenceController.dismissInsight);
 
-// Priority recommendations routes
 router.post('/recommendations/:userId/generate', IntelligenceController.generateRecommendations);
 router.get('/recommendations/:userId', IntelligenceController.getActiveRecommendations);
 
-// Cognitive load routes
 router.post('/cognitive-load/:userId/calculate', IntelligenceController.calculateCognitiveLoad);
 router.get('/cognitive-load/:userId', IntelligenceController.getLatestCognitiveLoad);
 
-// Analytics routes
-router.get('/stats/:userId', IntelligenceController.getDailyStats);
-router.put('/stats/:userId', IntelligenceController.updateDailyStats);
-router.post('/context-switch/:userId', IntelligenceController.recordContextSwitch);
-router.post('/focus-session/:userId', IntelligenceController.recordFocusSession);
-router.get('/thread-summary/:id', IntelligenceController.getThreadSummary);
-router.post('/chat/:userId', IntelligenceController.chat);
+router.post('/record-activity', IntelligenceController.recordActivity);
+router.get('/daily-stats/:userId', IntelligenceController.getDailyStats);
 
 export default router;

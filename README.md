@@ -34,8 +34,8 @@ monocle-your-work-compass-main/
 - Manage priority levels
 - Related people and tags
 
-### 📊 AI-Powered Intelligence
-- **Smart Insights**: Gemini AI analyzes your work patterns
+### 🎯 AI-Powered Intelligence
+- **Smart Insights**: AI analyzes your work patterns (Supports Groq, Gemini, and more)
 - **Priority Recommendations**: Get AI-driven suggestions on what to focus on
 - **Cognitive Load Monitoring**: Track mental workload and context switching
 - **Pattern Detection**: Identify attention leaks, deadline risks, and overload
@@ -70,8 +70,8 @@ monocle-your-work-compass-main/
 - **Framework**: Express.js
 - **Language**: TypeScript
 - **Database**: Firebase Firestore
-- **AI**: Google Gemini AI
-- **Authentication**: Firebase Auth (ready for integration)
+- **AI**: Groq (Llama 3) / Google Gemini AI
+- **Authentication**: JWT Native / Firebase Auth ready
 
 ## Getting Started
 
@@ -238,4 +238,4 @@ For questions or support, please open an issue in the repository.
 
 ---
 
-**Built with ❤️ using React, Node.js, Firebase, and Gemini AI**
+**Built with ❤️ using React, Node.js, Firebase, and AI (Groq/Gemini)**

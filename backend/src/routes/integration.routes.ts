@@ -4,10 +4,7 @@ import { authMiddleware } from '../middleware/auth.middleware';
 
 const router = Router();
 
-// Protected routes
 router.use(authMiddleware as any);
-
-router.post('/:userId/google/sync', IntegrationController.syncGoogle);
-router.post('/:userId/notion/sync', IntegrationController.syncNotion);
+router.post('/google/sync', IntegrationController.syncGoogle);
 
 export default router;

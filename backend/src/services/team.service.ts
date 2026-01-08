@@ -1,6 +1,7 @@
 import { TeamModel } from '../models/Team';
 import { InvitationModel } from '../models/Invitation';
 import { UserModel } from '../models/User';
+import { MailService } from './mail.service';
 import crypto from 'crypto';
 
 export class TeamService {
@@ -67,13 +68,20 @@ export class TeamService {
             expiresAt
         });
 
-        // In a real app, send email here.
-        // For now, we return the invite link.
+        const inviteLink = `${process.env.FRONTEND_URL || 'http://localhost:8080'}/teams/join?token=${token}`;
+
+        // Send invitation email
+        await MailService.sendTeamInvite(email, team.name, inviteLink);
+
         return {
             invitationId: invitation.id,
             token,
-            link: `${process.env.FRONTEND_URL || 'http://localhost:8080'}/teams/join?token=${token}`
+            link: inviteLink
         };
+    }
+
+    static async getTeamInvitations(teamId: string) {
+        return await InvitationModel.find({ teamId });
     }
 
     static async acceptInvite(userId: string, token: string) {
@@ -130,6 +138,24 @@ export class TeamService {
         }
 
         team.members = team.members.filter(m => m.userId !== memberIdToRemove);
+        await team.save();
+
+        return team;
+    }
+
+    static async updateMemberRole(teamId: string, adminId: string, memberId: string, newRole: 'admin' | 'member') {
+        const team = await TeamModel.findById(teamId);
+        if (!team) throw new Error('Team not found');
+
+        const admin = team.members.find(m => m.userId === adminId);
+        if (!admin || admin.role !== 'admin') {
+            throw new Error('Only admins can change roles');
+        }
+
+        const member = team.members.find(m => m.userId === memberId);
+        if (!member) throw new Error('Member not found in team');
+
+        member.role = newRole;
         await team.save();
 
         return team;

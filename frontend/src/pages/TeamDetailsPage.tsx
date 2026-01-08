@@ -404,47 +404,55 @@ export default function TeamDetailsPage() {
                                 </h3>
                                 {itemsLoading ? <div className="flex justify-center"><Loader2 className="animate-spin" /></div> :
                                     teamItems.length > 0 ? (
-                                        <Card>
-                                            <CardContent className="p-0">
-                                                {teamItems.map((item: WorkItem) => (
-                                                    <div key={item.id} className="p-4 border-b last:border-0 flex justify-between items-center hover:bg-muted/30 transition-colors">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-2 h-2 rounded-full bg-primary" />
-                                                            <div>
-                                                                <p className="font-medium">{item.title}</p>
-                                                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                                                    <span>{item.source}</span>
-                                                                    <span>•</span>
-                                                                    <span>{format(new Date(item.timestamp), 'MMM d, h:mm a')}</span>
+                                        <div className="space-y-4">
+                                            {teamItems.map((item: WorkItem) => (
+                                                item.type === 'task' ? (
+                                                    <WorkTaskCard
+                                                        key={item.id}
+                                                        task={item}
+                                                        onStatusChange={(id, status) => updateTaskStatusMutation.mutate({ id, status })}
+                                                    />
+                                                ) : (
+                                                    <Card key={item.id}>
+                                                        <CardContent className="p-4 flex justify-between items-center">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-2 h-2 rounded-full bg-primary" />
+                                                                <div>
+                                                                    <p className="font-medium">{item.title}</p>
+                                                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                                        <span>{item.source}</span>
+                                                                        <span>•</span>
+                                                                        <span>{format(new Date(item.timestamp), 'MMM d, h:mm a')}</span>
+                                                                    </div>
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                            {item.assigneeId && (
-                                                                <Badge variant="secondary" className="text-xs">
-                                                                    Assigned to {team.members.find(m => m.userId === item.assigneeId)?.name || 'Member'}
-                                                                </Badge>
-                                                            )}
-                                                            <Badge variant={item.isRead ? "outline" : "default"}>{item.type}</Badge>
-                                                            {isAdmin && (
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                                    onClick={() => {
-                                                                        if (confirm('Are you sure you want to delete this task?')) {
-                                                                            deleteTaskMutation.mutate(item.id);
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    <Trash2 className="w-4 h-4" />
-                                                                </Button>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </CardContent>
-                                        </Card>
+                                                            <div className="flex items-center gap-2">
+                                                                {item.assigneeId && (
+                                                                    <Badge variant="secondary" className="text-xs">
+                                                                        Assigned to {team.members.find(m => m.userId === item.assigneeId)?.name || 'Member'}
+                                                                    </Badge>
+                                                                )}
+                                                                <Badge variant={item.isRead ? "outline" : "default"}>{item.type}</Badge>
+                                                                {isAdmin && (
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                                        onClick={() => {
+                                                                            if (confirm('Are you sure you want to delete this task?')) {
+                                                                                deleteTaskMutation.mutate(item.id);
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        <Trash2 className="w-4 h-4" />
+                                                                    </Button>
+                                                                )}
+                                                            </div>
+                                                        </CardContent>
+                                                    </Card>
+                                                )
+                                            ))}
+                                        </div>
                                     ) : <div className="text-center py-8 text-muted-foreground bg-muted/30 rounded-lg">No items assigned to this team.</div>}
                             </div>
                         </TabsContent>

@@ -5,7 +5,8 @@ import {
   MessageSquare,
   FileText,
   Calendar,
-  CheckSquare
+  CheckSquare,
+  CheckCircle2
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
@@ -49,9 +50,11 @@ export function WorkItemRow({ item, onClick }: WorkItemRowProps) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
           <h4 className={cn(
-            "text-sm truncate",
-            !item.isRead && "font-medium"
+            "text-sm truncate flex items-center gap-1.5",
+            !item.isRead && "font-medium",
+            item.status === 'completed' && "text-muted-foreground line-through"
           )}>
+            {item.status === 'completed' && <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />}
             {item.title}
           </h4>
           <span className="text-xs text-muted-foreground flex-shrink-0">
